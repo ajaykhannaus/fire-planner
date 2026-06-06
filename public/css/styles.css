@@ -198,3 +198,16 @@ table.summary td:first-child,table.summary th:first-child{text-align:left}
 .loan-fields{margin-top:6px;padding:10px 12px;border:1px dashed var(--border,#dbe3e5);border-radius:10px;background:rgba(17,155,144,.04)}
 .loan-chip{display:inline-block;font-size:11px;font-weight:600;color:#7a4d12;background:rgba(186,117,23,.12);border-radius:6px;padding:2px 7px}
 .cell-sub{margin-top:3px;font-size:11px}
+
+/* --- Live-update feedback on derived chips + easier allocation sliders (added) --- */
+@keyframes chipFlash {
+  0%   { background: var(--accent,#119b90); color:#fff; transform: translateY(-2px); box-shadow:0 4px 14px rgba(17,155,144,.35); }
+  100% { background: var(--surface-2,#eef2f3); color: inherit; transform: none; box-shadow:none; }
+}
+@keyframes chipFlashVal { 0% { color:#fff; } 100% { } }
+.chip.flash { animation: chipFlash .65s ease-out; }
+.chip.flash b { animation: chipFlashVal .65s ease-out; }
+/* fatter hit area for the small returns/allocation sliders */
+.alloc .mini input[type=range]{height:14px;cursor:pointer}
+.alloc .mini input[type=range]::-webkit-slider-thumb{width:16px;height:16px}
+.alloc .mini input[type=range]::-moz-range-thumb{width:16px;height:16px}

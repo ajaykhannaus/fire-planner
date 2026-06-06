@@ -355,6 +355,7 @@ function refresh() {
   renderChart(R); renderAgeCards(R); renderSummary(R);
 }
 
+let _prevDerived = {};
 function renderDerived(R) {
   const chips = [
     ['Pre-ret blended', fmtPct(R.preR)],
@@ -365,7 +366,13 @@ function renderDerived(R) {
     ['Total expenses/mo', money(R.monthlyExp)],
     ['Total savings/mo', money(R.monthlyInv)],
   ];
-  $('derivedChips').innerHTML = chips.map(([k, v]) => `<div class="chip"><span>${k}</span><b>${v}</b></div>`).join('');
+  // flash any chip whose value changed since the last render, so it's obvious these
+  // are live-driven by the return / allocation / expense selections.
+  $('derivedChips').innerHTML = chips.map(([k, v]) => {
+    const changed = _prevDerived[k] !== undefined && _prevDerived[k] !== v;
+    return `<div class="chip${changed ? ' flash' : ''}"><span>${k}</span><b>${v}</b></div>`;
+  }).join('');
+  _prevDerived = Object.fromEntries(chips);
 }
 
 function stackBar(id, parts) {
