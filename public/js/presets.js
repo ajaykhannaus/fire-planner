@@ -47,8 +47,8 @@ export const PRESETS = {
     code: 'IN', name: 'India', flag: '🇮🇳', symbol: '₹', numberStyle: 'indian',
     inflation: 6, depr: 3, fxRate: 83,
     returns: { us: 12, mf: 12, epf: 8, fd: 7 },
-    expenses: { food: 30000, rent: 45000, util: 10000, lux: 20000, car: 15000, emi: 25000, other: 5000 },
-    investedMin: 500000, investedMax: 500000000, investedStep: 500000, investedDefault: 30000000,
+    expenses: { food: 12000, rent: 18000, util: 4000, lux: 6000, car: 5000, emi: 0, other: 5000 }, // ₹50k/mo total
+    investedMin: 500000, investedMax: 500000000, investedStep: 500000, investedDefault: 10000000,  // ₹1cr
     goalDefaults: { house: 15000000, car: 1500000, wedding: 3000000, edu: 5000000, travel: 1000000, custom: 2000000 },
     childCostDefault: 5000000,
   },
