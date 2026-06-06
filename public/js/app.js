@@ -184,15 +184,39 @@ function makeSlider(container, opts) {
   const row = document.createElement('div'); row.className = 'slider-row';
   const lab = document.createElement('label');
   const name = document.createElement('span'); name.textContent = opts.label;
-  const val = document.createElement('span'); val.className = 'val';
+  // the value is an editable field: click/tap to type an exact number instead of dragging
+  const val = document.createElement('input');
+  val.className = 'val val-input'; val.type = 'text'; val.inputMode = 'decimal';
+  val.setAttribute('aria-label', opts.label + ' value'); val.title = 'Click to type an exact value';
   lab.append(name, val);
   const inp = document.createElement('input');
   inp.type = 'range'; inp.min = opts.min; inp.max = opts.max; inp.step = opts.step; inp.value = opts.value;
-  const render = () => { val.textContent = opts.fmt(parseFloat(inp.value)); };
-  inp.addEventListener('input', () => { render(); opts.onInput(parseFloat(inp.value)); });
-  render();
-  const clamped = parseFloat(inp.value);
-  if (clamped !== opts.value) opts.onInput(clamped);
+
+  const min = parseFloat(opts.min), max = parseFloat(opts.max);
+  let cur = parseFloat(inp.value);   // the true value (text entry can be more precise than the slider step)
+  let editing = false;
+
+  // slider drag → update everything live
+  inp.addEventListener('input', () => {
+    cur = parseFloat(inp.value);
+    if (!editing) val.value = opts.fmt(cur);
+    opts.onInput(cur);
+  });
+
+  // typed entry: show the raw number while editing, commit (clamped) on blur / Enter
+  val.addEventListener('focus', () => { editing = true; val.value = String(cur); val.select(); });
+  val.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); val.blur(); } });
+  val.addEventListener('blur', () => {
+    editing = false;
+    let num = parseFloat(String(val.value).replace(/[^0-9.\-]/g, ''));
+    if (!isFinite(num)) { val.value = opts.fmt(cur); return; }   // ignore garbage, keep previous
+    num = Math.min(max, Math.max(min, num));
+    cur = num; inp.value = num; val.value = opts.fmt(cur);
+    opts.onInput(cur);   // may rebuild inputs (e.g. current age) — safe, we've already blurred
+  });
+
+  val.value = opts.fmt(cur);
+  if (cur !== opts.value) opts.onInput(cur);   // initial clamp
   row.append(lab, inp); container.appendChild(row);
   return inp;
 }
@@ -238,11 +262,26 @@ function buildAlloc() {
     for (const key of ['pre', 'post', 'ret']) {
       const td = document.createElement('td');
       const mini = document.createElement('div'); mini.className = 'mini';
+      const mx = key === 'ret' ? 20 : 100;
       const inp = document.createElement('input');
-      inp.type = 'range'; inp.min = 0; inp.max = key === 'ret' ? 20 : 100;
+      inp.type = 'range'; inp.min = 0; inp.max = mx;
       inp.step = key === 'ret' ? 0.5 : 5; inp.value = plan.alloc[a.id][key];
-      const v = document.createElement('span'); v.className = 'minival'; v.textContent = plan.alloc[a.id][key] + '%';
-      inp.addEventListener('input', () => { plan.alloc[a.id][key] = parseFloat(inp.value); v.textContent = inp.value + '%'; refresh(); });
+      const v = document.createElement('input'); v.className = 'minival mini-input';
+      v.type = 'text'; v.inputMode = 'decimal'; v.value = plan.alloc[a.id][key] + '%';
+      v.title = 'Click to type an exact value';
+      inp.addEventListener('input', () => {
+        plan.alloc[a.id][key] = parseFloat(inp.value);
+        if (document.activeElement !== v) v.value = inp.value + '%';
+        refresh();
+      });
+      v.addEventListener('focus', () => { v.value = String(plan.alloc[a.id][key]); v.select(); });
+      v.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); v.blur(); } });
+      v.addEventListener('blur', () => {
+        let num = parseFloat(String(v.value).replace(/[^0-9.\-]/g, ''));
+        if (!isFinite(num)) { v.value = plan.alloc[a.id][key] + '%'; return; }
+        num = Math.min(mx, Math.max(0, num));
+        plan.alloc[a.id][key] = num; inp.value = num; v.value = num + '%'; refresh();
+      });
       mini.append(inp, v); td.appendChild(mini); tr.appendChild(td);
     }
     body.appendChild(tr);

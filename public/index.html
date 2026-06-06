@@ -45,7 +45,7 @@
 
     <!-- MAIN -->
     <main class="main" id="main">
-      <!-- Core -->
+      <!-- 1 · Core inputs -->
       <section class="card">
         <h2>⚙️ Core Inputs</h2>
         <div class="grid2">
@@ -54,26 +54,25 @@
         </div>
       </section>
 
-      <!-- FIRE status -->
+      <!-- 2 · Monthly expenses -->
       <section class="card">
-        <h2>📈 FIRE Status</h2>
-        <div class="fire-cards" id="fireCards"></div>
+        <h2>💸 Monthly Expenses <span class="hdr-total" id="expTotal"></span></h2>
+        <div class="stackbar" id="expBar"></div>
+        <div class="legend" id="expLegend"></div>
+        <button class="toggle-btn" data-target="expBreak">▼ Category breakdown</button>
+        <div id="expBreak" class="collapsed"></div>
       </section>
 
-      <!-- Funding plan -->
+      <!-- 3 · Monthly investments -->
       <section class="card">
-        <h2>🧮 Funding Plan — how to retire at <span id="fpAge"></span></h2>
-        <div id="fundingPlan"></div>
+        <h2>💼 Monthly Investments <span class="hdr-total" id="invTotal"></span></h2>
+        <div class="stackbar" id="invBar"></div>
+        <div class="legend" id="invLegend"></div>
+        <button class="toggle-btn" data-target="invBreak">▼ Category breakdown</button>
+        <div id="invBreak" class="collapsed"></div>
       </section>
 
-      <!-- Strategies -->
-      <section class="card">
-        <h2>🧭 Career Strategy Briefing</h2>
-        <div class="muted small" style="margin-bottom:12px">Concrete plans you can run over your career to reach FIRE and fund your goals.</div>
-        <div class="strat-grid" id="strategies"></div>
-      </section>
-
-      <!-- Allocation -->
+      <!-- 4 · Asset allocation (advanced — placed below the primary inputs) -->
       <section class="card">
         <h2>📊 Asset Allocation</h2>
         <div class="alloc-scroll">
@@ -86,25 +85,7 @@
         </div>
       </section>
 
-      <!-- Expenses -->
-      <section class="card">
-        <h2>💸 Monthly Expenses <span class="hdr-total" id="expTotal"></span></h2>
-        <div class="stackbar" id="expBar"></div>
-        <div class="legend" id="expLegend"></div>
-        <button class="toggle-btn" data-target="expBreak">▼ Category breakdown</button>
-        <div id="expBreak" class="collapsed"></div>
-      </section>
-
-      <!-- Investments -->
-      <section class="card">
-        <h2>💼 Monthly Investments <span class="hdr-total" id="invTotal"></span></h2>
-        <div class="stackbar" id="invBar"></div>
-        <div class="legend" id="invLegend"></div>
-        <button class="toggle-btn" data-target="invBreak">▼ Category breakdown</button>
-        <div id="invBreak" class="collapsed"></div>
-      </section>
-
-      <!-- Goals -->
+      <!-- 5 · Life goals -->
       <section class="card">
         <h2>🎯 Life Goals</h2>
         <div class="child-row">
@@ -120,13 +101,32 @@
         <div class="goal-summary" id="goalSummary"></div>
       </section>
 
-      <!-- Goal funding -->
+      <!-- 6 · FIRE status (results begin) -->
+      <section class="card">
+        <h2>📈 FIRE Status</h2>
+        <div class="fire-cards" id="fireCards"></div>
+      </section>
+
+      <!-- 7 · Funding plan -->
+      <section class="card">
+        <h2>🧮 Funding Plan — how to retire at <span id="fpAge"></span></h2>
+        <div id="fundingPlan"></div>
+      </section>
+
+      <!-- 8 · Strategies -->
+      <section class="card">
+        <h2>🧭 Career Strategy Briefing</h2>
+        <div class="muted small" style="margin-bottom:12px">Concrete plans you can run over your career to reach FIRE and fund your goals.</div>
+        <div class="strat-grid" id="strategies"></div>
+      </section>
+
+      <!-- 9 · Goal funding -->
       <section class="card">
         <h2>🎯 Goal Funding — dedicated SIP per goal</h2>
         <div id="goalFunding"></div>
       </section>
 
-      <!-- Charts -->
+      <!-- 10 · Charts -->
       <section class="card">
         <div class="tabs" id="chartTabs">
           <button data-t="corpus" class="active">Corpus Growth</button>
@@ -135,13 +135,13 @@
         <div class="chart-box"><canvas id="mainChart"></canvas></div>
       </section>
 
-      <!-- Age cards -->
+      <!-- 11 · Age snapshots -->
       <section class="card">
         <h2>🃏 Age Snapshots</h2>
         <div class="grid4" id="ageCards"></div>
       </section>
 
-      <!-- Summary -->
+      <!-- 12 · Summary table -->
       <section class="card">
         <h2>📋 Summary Table</h2>
         <div style="overflow-x:auto">
