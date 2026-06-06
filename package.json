@@ -1,0 +1,11 @@
+{
+  "name": "fire-planner",
+  "version": "2.0.0",
+  "description": "Global multi-country FIRE & life financial planning app — static, browser-only (no login, no backend). Plans saved in localStorage.",
+  "private": true,
+  "scripts": {
+    "start": "npx --yes serve public",
+    "preview": "npx --yes serve public"
+  },
+  "license": "MIT"
+}

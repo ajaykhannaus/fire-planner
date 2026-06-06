@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FIRE Planner — Global Financial Independence</title>
+<link rel="stylesheet" href="css/styles.css" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+
+<!-- APP -->
+<div id="app" class="app">
+  <header class="topbar">
+    <div class="brand">🔥 FIRE Planner</div>
+    <div class="topbar-mid">
+      <span class="plan-name" id="currentPlanName">Untitled plan</span>
+    </div>
+    <div class="topbar-actions">
+      <span class="local-badge" title="No login — your plans are stored only in this browser">🔒 Saved in this browser</span>
+      <button class="btn-ghost" id="btnReport">📄 Export PDF</button>
+      <button class="btn-ghost" id="btnSave">💾 Save</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- LEFT RAIL -->
+    <aside class="rail">
+      <button class="btn-primary full" id="btnNewPlan">+ New plan</button>
+      <div class="rail-section-title">Your plans</div>
+      <div id="planList" class="plan-list"></div>
+
+      <div class="rail-section-title">Country / Currency</div>
+      <select id="countrySelect" class="select"></select>
+      <button class="btn-ghost full" id="btnCustomCountry">⚙️ Customize country</button>
+
+      <div class="rail-section-title">Mode</div>
+      <label class="switch-row">
+        <input type="checkbox" id="separateGoals" />
+        <span>Keep retirement separate from goals</span>
+      </label>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main" id="main">
+      <!-- Core -->
+      <section class="card">
+        <h2>⚙️ Core Inputs</h2>
+        <div class="grid2">
+          <div id="coreSliders"></div>
+          <div><div class="derived" id="derivedChips"></div></div>
+        </div>
+      </section>
+
+      <!-- FIRE status -->
+      <section class="card">
+        <h2>📈 FIRE Status</h2>
+        <div class="fire-cards" id="fireCards"></div>
+      </section>
+
+      <!-- Funding plan -->
+      <section class="card">
+        <h2>🧮 Funding Plan — how to retire at <span id="fpAge"></span></h2>
+        <div id="fundingPlan"></div>
+      </section>
+
+      <!-- Strategies -->
+      <section class="card">
+        <h2>🧭 Career Strategy Briefing</h2>
+        <div class="muted small" style="margin-bottom:12px">Concrete plans you can run over your career to reach FIRE and fund your goals.</div>
+        <div class="strat-grid" id="strategies"></div>
+      </section>
+
+      <!-- Allocation -->
+      <section class="card">
+        <h2>📊 Asset Allocation</h2>
+        <table class="alloc"><thead><tr><th>Asset</th><th>Pre-ret %</th><th>Post-ret %</th><th>Return %</th></tr></thead>
+          <tbody id="allocBody"></tbody></table>
+        <div class="grid2" style="margin-top:14px">
+          <div><div class="small muted">Pre-retirement</div><div class="stackbar" id="preBar"></div></div>
+          <div><div class="small muted">Post-retirement</div><div class="stackbar" id="postBar"></div></div>
+        </div>
+      </section>
+
+      <!-- Expenses -->
+      <section class="card">
+        <h2>💸 Monthly Expenses <span class="hdr-total" id="expTotal"></span></h2>
+        <div class="stackbar" id="expBar"></div>
+        <div class="legend" id="expLegend"></div>
+        <button class="toggle-btn" data-target="expBreak">▼ Category breakdown</button>
+        <div id="expBreak" class="collapsed"></div>
+      </section>
+
+      <!-- Investments -->
+      <section class="card">
+        <h2>💼 Monthly Investments <span class="hdr-total" id="invTotal"></span></h2>
+        <div class="stackbar" id="invBar"></div>
+        <div class="legend" id="invLegend"></div>
+        <button class="toggle-btn" data-target="invBreak">▼ Category breakdown</button>
+        <div id="invBreak" class="collapsed"></div>
+      </section>
+
+      <!-- Goals -->
+      <section class="card">
+        <h2>🎯 Life Goals</h2>
+        <div class="child-row">
+          <span>👶 Children:</span>
+          <div class="pills" id="childPills">
+            <button data-n="0" class="active">0</button><button data-n="1">1</button>
+            <button data-n="2">2</button><button data-n="3">3</button>
+          </div>
+        </div>
+        <div id="childSliders"></div>
+        <div id="childCostWrap"></div>
+        <div class="grid3" id="goalGrid" style="margin-top:14px"></div>
+        <div class="goal-summary" id="goalSummary"></div>
+      </section>
+
+      <!-- Goal funding -->
+      <section class="card">
+        <h2>🎯 Goal Funding — dedicated SIP per goal</h2>
+        <div id="goalFunding"></div>
+      </section>
+
+      <!-- Charts -->
+      <section class="card">
+        <div class="tabs" id="chartTabs">
+          <button data-t="corpus" class="active">Corpus Growth</button>
+          <button data-t="wd">Withdrawal % Over Time</button>
+        </div>
+        <div class="chart-box"><canvas id="mainChart"></canvas></div>
+      </section>
+
+      <!-- Age cards -->
+      <section class="card">
+        <h2>🃏 Age Snapshots</h2>
+        <div class="grid4" id="ageCards"></div>
+      </section>
+
+      <!-- Summary -->
+      <section class="card">
+        <h2>📋 Summary Table</h2>
+        <div style="overflow-x:auto">
+          <table class="summary" id="summaryTable">
+            <thead><tr><th>Age</th><th>Nominal</th><th>Real (today)</th><th>USD equiv</th>
+              <th>Income/mo</th><th>Expenses/mo</th><th>Surplus/mo</th><th>WD%</th><th>Goals</th></tr></thead>
+            <tbody id="summaryBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- Custom country modal -->
+<div id="countryModal" class="modal-overlay" style="display:none">
+  <div class="modal">
+    <h3>⚙️ Customize Country</h3>
+    <div class="muted small" style="margin-bottom:14px">These assumptions drive every calculation. Set them for any country.</div>
+    <div id="countryForm" class="country-form"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="cmCancel">Cancel</button>
+      <button class="btn-primary" id="cmApply">Apply</button>
+    </div>
+  </div>
+</div>
+
+<!-- Save modal -->
+<div id="saveModal" class="modal-overlay" style="display:none">
+  <div class="modal">
+    <h3>💾 Save plan</h3>
+    <div class="field"><label>Plan name</label><input type="text" id="saveName" /></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="smCancel">Cancel</button>
+      <button class="btn-primary" id="smSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Life Financial Planning Calculator</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --color-background-primary: #f4f6f9;
+  --color-background-secondary: #ffffff;
+  --color-background-tertiary: #eef1f5;
+  --color-text-primary: #1a2230;
+  --color-text-secondary: #5a6675;
+  --color-text-tertiary: #8a96a4;
+  --color-border-tertiary: #dce1e8;
+  --color-accent: #119b90;
+  --age1: #185FA5;
+  --age2: #0F6E56;
+  --age3: #533AB7;
+  --age4: #BA7517;
+  --exp1: #FF6B6B;
+  --exp2: #4ECDC4;
+  --exp3: #45B7D1;
+  --exp4: #96CEB4;
+  --exp5: #FFEAA7;
+  --exp6: #DDA0DD;
+  --exp7: #98D8C8;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--color-background-primary);
+  color: var(--color-text-primary);
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 20px;
+}
+.wrap { max-width: 1280px; margin: 0 auto; }
+h1 { font-size: 22px; margin: 0 0 4px; }
+.sub { color: var(--color-text-secondary); font-size: 13px; margin-bottom: 16px; }
+.card {
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 16px;
+}
+.card h2 { font-size: 15px; margin: 0 0 14px; display: flex; align-items: center; gap: 8px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.grid4 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+@media (max-width: 900px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+
+/* Country toggle */
+.country-toggle {
+  display: inline-flex;
+  background: var(--color-background-tertiary);
+  border-radius: 12px;
+  padding: 5px;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+.country-toggle button {
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  padding: 9px 22px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  transition: all .15s;
+}
+.country-toggle button.active {
+  background: var(--color-accent);
+  color: #ffffff;
+}
+
+/* Sliders */
+.slider-row { margin-bottom: 14px; }
+.slider-row label {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 13px; margin-bottom: 6px; color: var(--color-text-secondary);
+}
+.slider-row label .val { color: var(--color-text-primary); font-weight: 600; font-variant-numeric: tabular-nums; }
+input[type=range] {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 6px;
+  background: var(--color-background-tertiary); border-radius: 4px; outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 16px; height: 16px;
+  border-radius: 50%; background: var(--color-accent); cursor: pointer; border: 2px solid #07110f;
+}
+input[type=range]::-moz-range-thumb {
+  width: 16px; height: 16px; border-radius: 50%; background: var(--color-accent); cursor: pointer; border: 2px solid #07110f;
+}
+
+/* Derived chips */
+.derived { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.chip {
+  background: var(--color-background-tertiary);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: 9px; padding: 7px 11px; font-size: 12px;
+}
+.chip b { display: block; font-size: 14px; color: var(--color-text-primary); font-variant-numeric: tabular-nums; }
+.chip span { color: var(--color-text-tertiary); }
+
+/* Allocation table */
+table.alloc { width: 100%; border-collapse: collapse; font-size: 12px; }
+table.alloc th, table.alloc td { padding: 6px 8px; text-align: left; }
+table.alloc th { color: var(--color-text-tertiary); font-weight: 500; border-bottom: 1px solid var(--color-border-tertiary); }
+table.alloc td .mini { display: flex; align-items: center; gap: 6px; }
+table.alloc input[type=range] { width: 80px; }
+.minival { width: 38px; text-align: right; font-variant-numeric: tabular-nums; }
+.total-row td { border-top: 1px solid var(--color-border-tertiary); font-weight: 600; }
+.bad { color: #d64545; }
+.good { color: #0f8a80; }
+
+/* Stacked bar */
+.stackbar { display: flex; height: 22px; border-radius: 6px; overflow: hidden; margin: 8px 0; }
+.stackbar div { height: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 11px; color: var(--color-text-secondary); }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+.legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+/* Expandable */
+.toggle-btn {
+  background: var(--color-background-tertiary); border: 1px solid var(--color-border-tertiary);
+  color: var(--color-text-primary); border-radius: 8px; padding: 7px 12px;
+  cursor: pointer; font-size: 12px; margin-top: 10px;
+}
+.collapsed { display: none; }
+
+/* Pills */
+.pills { display: inline-flex; gap: 6px; }
+.pills button {
+  border: 1px solid var(--color-border-tertiary); background: var(--color-background-tertiary);
+  color: var(--color-text-secondary); width: 38px; height: 34px; border-radius: 8px; cursor: pointer; font-weight: 600;
+}
+.pills button.active { background: var(--color-accent); color: #ffffff; border-color: var(--color-accent); }
+
+/* Goal cards */
+.goal-card { background: var(--color-background-tertiary); border: 1px solid var(--color-border-tertiary); border-radius: 10px; padding: 12px; }
+.goal-card.disabled { opacity: .5; }
+.goal-card .ghead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: 600; font-size: 13px; }
+.goal-card input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--color-accent); }
+
+/* FIRE cards */
+.fire-cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+@media (max-width: 900px) { .fire-cards { grid-template-columns: 1fr; } }
+.fire-card { background: var(--color-background-tertiary); border: 1px solid var(--color-border-tertiary); border-radius: 12px; padding: 16px; text-align: center; }
+.fire-card .big { font-size: 24px; font-weight: 700; margin: 6px 0; font-variant-numeric: tabular-nums; }
+.fire-card .lbl { color: var(--color-text-tertiary); font-size: 12px; }
+.yes { color: #0f8a80; } .no { color: #d64545; }
+
+/* Tabs */
+.tabs { display: inline-flex; gap: 4px; margin-bottom: 12px; background: var(--color-background-tertiary); padding: 4px; border-radius: 10px; }
+.tabs button { border: none; background: transparent; color: var(--color-text-secondary); padding: 7px 16px; border-radius: 7px; cursor: pointer; font-weight: 600; font-size: 13px; }
+.tabs button.active { background: var(--color-accent); color: #ffffff; }
+.chart-box { position: relative; height: 360px; }
+
+/* Age cards */
+.age-card { background: var(--color-background-tertiary); border-radius: 12px; padding: 14px; border-left: 4px solid; }
+.age-card .atop { display: flex; justify-content: space-between; align-items: baseline; }
+.age-card .phase { font-size: 11px; color: var(--color-text-tertiary); }
+.age-card .nw { font-size: 20px; font-weight: 700; margin: 6px 0 2px; font-variant-numeric: tabular-nums; }
+.age-card .row { display: flex; justify-content: space-between; font-size: 12px; color: var(--color-text-secondary); padding: 2px 0; }
+.age-card .row b { color: var(--color-text-primary); font-variant-numeric: tabular-nums; }
+.realbar { height: 6px; background: var(--color-background-primary); border-radius: 3px; overflow: hidden; margin: 6px 0; }
+.realbar div { height: 100%; background: var(--color-accent); }
+
+/* Summary table */
+table.summary { width: 100%; border-collapse: collapse; font-size: 12px; }
+table.summary th, table.summary td { padding: 7px 9px; text-align: right; border-bottom: 1px solid var(--color-border-tertiary); font-variant-numeric: tabular-nums; }
+table.summary th { color: var(--color-text-tertiary); font-weight: 500; }
+table.summary td:first-child, table.summary th:first-child { text-align: left; }
+.small { font-size: 11px; color: var(--color-text-tertiary); }
+
+/* Funding plan */
+.fund-head { font-size: 13px; margin-bottom: 12px; }
+.fund-head b { color: var(--color-text-primary); }
+.fund-banner { padding: 12px 14px; border-radius: 10px; margin-bottom: 14px; font-size: 14px; font-weight: 600; }
+.fund-banner.ok { background: rgba(15,138,128,.12); color: #0f8a80; border: 1px solid rgba(15,138,128,.3); }
+.fund-banner.gap { background: rgba(214,69,69,.10); color: #d64545; border: 1px solid rgba(214,69,69,.3); }
+.fund-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+@media (max-width: 900px) { .fund-grid { grid-template-columns: 1fr; } }
+.fund-opt { background: var(--color-background-tertiary); border: 1px solid var(--color-border-tertiary); border-radius: 12px; padding: 14px; }
+.fund-opt .otag { font-size: 11px; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: .04em; }
+.fund-opt .obig { font-size: 22px; font-weight: 700; margin: 6px 0 2px; font-variant-numeric: tabular-nums; }
+.fund-opt .osub { font-size: 12px; color: var(--color-text-secondary); }
+.note { font-size: 12px; color: var(--color-text-secondary); margin-top: 12px; line-height: 1.6; }
+.note b { color: var(--color-text-primary); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔥 Life Financial Planning Calculator</h1>
+  <div class="sub">FIRE / retirement projection — assumes current age 30, simulates to age 100. All real-time.</div>
+
+  <div class="country-toggle" id="countryToggle">
+    <button data-c="IN" class="active">🇮🇳 India</button>
+    <button data-c="US">🇺🇸 USA</button>
+  </div>
+
+  <!-- CORE INPUTS -->
+  <div class="card">
+    <h2>⚙️ Core Inputs</h2>
+    <div class="grid2">
+      <div id="coreSliders"></div>
+      <div>
+        <div class="derived" id="derivedChips"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ASSET ALLOCATION -->
+  <div class="card">
+    <h2>📊 Asset Allocation</h2>
+    <table class="alloc">
+      <thead><tr><th>Asset</th><th>Pre-ret %</th><th>Post-ret %</th><th>Expected return %</th></tr></thead>
+      <tbody id="allocBody"></tbody>
+    </table>
+    <div class="grid2" style="margin-top:14px">
+      <div>
+        <div class="small">Pre-retirement allocation</div>
+        <div class="stackbar" id="preBar"></div>
+      </div>
+      <div>
+        <div class="small">Post-retirement allocation</div>
+        <div class="stackbar" id="postBar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXPENSES -->
+  <div class="card">
+    <h2>💸 Monthly Expenses <span id="expTotal" style="margin-left:auto;font-weight:700"></span></h2>
+    <div class="stackbar" id="expBar"></div>
+    <div class="legend" id="expLegend"></div>
+    <button class="toggle-btn" data-target="expBreak">▼ Category breakdown</button>
+    <div id="expBreak" class="collapsed" style="margin-top:12px"></div>
+  </div>
+
+  <!-- INVESTMENTS -->
+  <div class="card">
+    <h2>💼 Monthly Investments <span id="invTotal" style="margin-left:auto;font-weight:700"></span></h2>
+    <div class="stackbar" id="invBar"></div>
+    <div class="legend" id="invLegend"></div>
+    <button class="toggle-btn" data-target="invBreak">▼ Category breakdown</button>
+    <div id="invBreak" class="collapsed" style="margin-top:12px"></div>
+  </div>
+
+  <!-- LIFE GOALS -->
+  <div class="card">
+    <h2>🎯 Life Goals</h2>
+    <div style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
+        <span>👶 Children:</span>
+        <div class="pills" id="childPills">
+          <button data-n="0" class="active">0</button>
+          <button data-n="1">1</button>
+          <button data-n="2">2</button>
+          <button data-n="3">3</button>
+        </div>
+      </div>
+      <div id="childSliders"></div>
+      <div id="childCostWrap"></div>
+    </div>
+    <div class="grid3" id="goalGrid"></div>
+    <div class="card" style="margin-top:14px;margin-bottom:0;background:var(--color-background-tertiary)">
+      <div class="legend" id="goalSummary" style="font-size:13px"></div>
+    </div>
+  </div>
+
+  <!-- FIRE STATUS -->
+  <div class="card">
+    <h2>📈 FIRE Status</h2>
+    <div class="fire-cards" id="fireCards"></div>
+  </div>
+
+  <!-- FUNDING PLAN -->
+  <div class="card">
+    <h2>🧮 Funding Plan — how to retire at <span id="fpAge" style="margin-left:4px"></span></h2>
+    <div id="fundingPlan"></div>
+  </div>
+
+  <!-- GOAL FUNDING -->
+  <div class="card">
+    <h2>🎯 Goal Funding — dedicated monthly SIP per goal</h2>
+    <div id="goalFunding"></div>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="card">
+    <div class="tabs" id="chartTabs">
+      <button data-t="corpus" class="active">Corpus Growth</button>
+      <button data-t="wd">Withdrawal % Over Time</button>
+    </div>
+    <div class="chart-box"><canvas id="mainChart"></canvas></div>
+  </div>
+
+  <!-- AGE CARDS -->
+  <div class="card">
+    <h2>🃏 Age Snapshots</h2>
+    <div class="grid4" id="ageCards"></div>
+  </div>
+
+  <!-- SUMMARY TABLE -->
+  <div class="card">
+    <h2>📋 Summary Table</h2>
+    <div style="overflow-x:auto">
+      <table class="summary">
+        <thead><tr>
+          <th>Age</th><th>Nominal</th><th>Real (today)</th><th>USD equiv</th>
+          <th>Income/mo</th><th>Expenses/mo</th><th>Surplus/mo</th><th>WD%</th><th>Goals hit</th>
+        </tr></thead>
+        <tbody id="summaryBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const START_AGE = 30, END_AGE = 100;
+
+// ---------- Country presets ----------
+const PRESETS = {
+  IN: {
+    cur: "INR", symbol: "₹",
+    inflation: 6, depr: 3, rate: 98,
+    investMin: 5000000, investMax: 200000000, investDef: 30000000, investStep: 500000,
+    rateMin: 70, rateMax: 130,
+    returns: { us: 9, mf: 12, epf: 8, fd: 7 },
+    expenses: { food: 30000, rent: 45000, util: 10000, lux: 20000, car: 15000, emi: 25000, other: 5000 },
+    childCost: 5000000, childCostMin: 500000, childCostMax: 20000000, childCostStep: 100000,
+    goalDefaults: { house: 15000000, car: 1500000, wedding: 3000000, edu: 5000000, travel: 1000000, custom: 2000000 },
+    goalMax: 50000000,
+  },
+  US: {
+    cur: "USD", symbol: "$",
+    inflation: 3, depr: 0, rate: 98,
+    investMin: 10000, investMax: 5000000, investDef: 500000, investStep: 10000,
+    rateMin: 70, rateMax: 130,
+    returns: { us: 10, mf: 9, epf: 7, fd: 4.5 },
+    expenses: { food: 800, rent: 1500, util: 300, lux: 600, car: 400, emi: 300, other: 100 },
+    childCost: 100000, childCostMin: 10000, childCostMax: 200000, childCostStep: 5000,
+    goalDefaults: { house: 100000, car: 40000, wedding: 50000, edu: 80000, travel: 15000, custom: 30000 },
+    goalMax: 1000000,
+  }
+};
+
+// ---------- State ----------
+let country = "IN";
+const state = {
+  invested: 0, retireAge: 45, inflation: 6, rate: 98, depr: 3, targetWd: 4,
+  alloc: { // pre %, post %, return %
+    us:  { pre: 30, post: 15, ret: 9 },
+    mf:  { pre: 40, post: 25, ret: 12 },
+    epf: { pre: 20, post: 30, ret: 8 },
+    fd:  { pre: 10, post: 30, ret: 7 },
+  },
+  expenses: {},
+  invest: { us: 0, mf: 0, epf: 0, fd: 0, other: 0 },
+  children: 0,
+  childYears: [10, 14, 18],
+  childCost: 0,
+  goals: {}, // id -> {on, age, amount}
+};
+
+const ASSETS = [
+  { id: "us",  label: "🇺🇸 US Stocks", color: "#185FA5" },
+  { id: "mf",  label: "🇮🇳 India MF",  color: "#0F6E56" },
+  { id: "epf", label: "🏦 EPF/401K",   color: "#533AB7" },
+  { id: "fd",  label: "💰 FD/Bonds",   color: "#BA7517" },
+];
+const EXP_CATS = [
+  { id: "food",  label: "🍔 Food/Groceries", color: "var(--exp1)" },
+  { id: "rent",  label: "🏠 Rent/Housing",   color: "var(--exp2)" },
+  { id: "util",  label: "⚡ Utilities",      color: "var(--exp3)" },
+  { id: "lux",   label: "💎 Luxury/Entmt",   color: "var(--exp4)" },
+  { id: "car",   label: "🚗 Car/Transport",  color: "var(--exp5)" },
+  { id: "emi",   label: "🏦 Mortgage/EMI",   color: "var(--exp6)" },
+  { id: "other", label: "📦 Other",          color: "var(--exp7)" },
+];
+const INV_CATS = [
+  { id: "us",    label: "🇺🇸 US Stocks/ETF", color: "var(--exp1)" },
+  { id: "mf",    label: "🇮🇳 India Stocks/MF", color: "var(--exp2)" },
+  { id: "epf",   label: "🏦 401K/EPF/PPF",   color: "var(--exp3)" },
+  { id: "fd",    label: "💰 FD/Bonds",       color: "var(--exp4)" },
+  { id: "other", label: "📦 Other",          color: "var(--exp5)" },
+];
+const GOALS = [
+  { id: "house",   label: "🏠 House Purchase",  amtLabel: "Down payment" },
+  { id: "car",     label: "🚗 Car",             amtLabel: "Budget" },
+  { id: "wedding", label: "💍 Wedding/Event",   amtLabel: "Budget" },
+  { id: "edu",     label: "🎓 Higher Education", amtLabel: "Budget" },
+  { id: "travel",  label: "✈️ Travel/Experience", amtLabel: "Budget" },
+  { id: "custom",  label: "⭐ Custom Goal",      amtLabel: "Amount" },
+];
+
+// ---------- Formatting ----------
+function fmtINR(v) {
+  v = Math.round(v);
+  const a = Math.abs(v), s = v < 0 ? "-" : "";
+  if (a >= 1e7) return s + "₹" + (a / 1e7).toFixed(a / 1e7 >= 10 ? 1 : 2) + "cr";
+  if (a >= 1e5) return s + "₹" + (a / 1e5).toFixed(a / 1e5 >= 10 ? 1 : 2) + "L";
+  if (a >= 1e3) return s + "₹" + Math.round(a / 1e3) + "K";
+  return s + "₹" + a;
+}
+function fmtUSD(v) {
+  v = Math.round(v);
+  const a = Math.abs(v), s = v < 0 ? "-" : "";
+  if (a >= 1e6) return s + "$" + (a / 1e6).toFixed(a / 1e6 >= 10 ? 1 : 2) + "M";
+  if (a >= 1e3) return s + "$" + Math.round(a / 1e3) + "K";
+  return s + "$" + a;
+}
+function fmt(v) { return country === "IN" ? fmtINR(v) : fmtUSD(v); }
+function fmtRaw(v) { // full with thousands separators, for slider readouts at fine grain
+  return (country === "IN" ? "₹" : "$") + Math.round(v).toLocaleString("en-US");
+}
+
+// ---------- Slider helper ----------
+function makeSlider(container, opts) {
+  // opts: {label, min, max, step, value, fmt, onInput}
+  const row = document.createElement("div");
+  row.className = "slider-row";
+  const lab = document.createElement("label");
+  const name = document.createElement("span"); name.textContent = opts.label;
+  const val = document.createElement("span"); val.className = "val";
+  lab.appendChild(name); lab.appendChild(val);
+  const inp = document.createElement("input");
+  inp.type = "range"; inp.min = opts.min; inp.max = opts.max; inp.step = opts.step; inp.value = opts.value;
+  const render = () => { val.textContent = opts.fmt(parseFloat(inp.value)); };
+  inp.addEventListener("input", () => { render(); opts.onInput(parseFloat(inp.value)); });
+  render();
+  // If the browser clamped the initial value to this slider's range (e.g. after a
+  // country switch with a different range), push the clamped value back into state
+  // so the displayed number and the calculations always agree.
+  const clamped = parseFloat(inp.value);
+  if (clamped !== opts.value) opts.onInput(clamped);
+  row.appendChild(lab); row.appendChild(inp);
+  container.appendChild(row);
+  return inp;
+}
+
+// ---------- Build / rebuild from country preset ----------
+function applyPreset() {
+  const p = PRESETS[country];
+  state.invested = p.investDef;
+  state.inflation = p.inflation;
+  state.rate = p.rate;
+  state.depr = p.depr;
+  state.targetWd = 4;
+  state.retireAge = 45;
+  for (const a of ASSETS) state.alloc[a.id].ret = p.returns[a.id];
+  state.expenses = Object.assign({}, p.expenses);
+  state.childCost = p.childCost;
+  // reset invest mix to 0
+  state.invest = { us: 0, mf: 0, epf: 0, fd: 0, other: 0 };
+  // goals defaults
+  for (const g of GOALS) {
+    state.goals[g.id] = { on: false, age: 40, amount: p.goalDefaults[g.id] };
+  }
+}
+
+// ---------- Computations ----------
+function blended(phase) {
+  let wsum = 0, num = 0;
+  for (const a of ASSETS) {
+    const w = state.alloc[a.id][phase];
+    wsum += w; num += w * state.alloc[a.id].ret;
+  }
+  return wsum > 0 ? (num / wsum) / 100 : 0;
+}
+function totalExpenses() { return EXP_CATS.reduce((s, c) => s + (state.expenses[c.id] || 0), 0); }
+function totalInvest() { return INV_CATS.reduce((s, c) => s + (state.invest[c.id] || 0), 0); }
+function inflFactor(age) { return Math.pow(1 + state.inflation / 100, age - START_AGE); }
+function futureRate(age) { return state.rate * Math.pow(1 + state.depr / 100, age - START_AGE); }
+
+function activeGoals() {
+  const list = [];
+  // children education
+  for (let i = 0; i < state.children; i++) {
+    const yrs = state.childYears[i];
+    list.push({ label: "👶 Child " + (i + 1) + " edu", age: START_AGE + yrs, today: state.childCost });
+  }
+  for (const g of GOALS) {
+    const gs = state.goals[g.id];
+    if (gs.on) list.push({ label: g.label, age: gs.age, today: gs.amount });
+  }
+  return list;
+}
+
+// Run simulation. opts.includeGoals, opts.postOverride (for 8% reference)
+function simulate(opts) {
+  const preR = opts.preOverride != null ? opts.preOverride : blended("pre");
+  const postBl = opts.postOverride != null ? opts.postOverride : blended("post");
+  const monthlyExp = totalExpenses();
+  const annualExpBase = monthlyExp * 12;
+  const annualSavings = totalInvest() * 12;
+  const goals = opts.includeGoals ? activeGoals() : [];
+  const goalByAge = {};
+  for (const g of goals) {
+    const yrs = g.age - START_AGE;
+    const cost = g.today * Math.pow(1 + state.inflation / 100, yrs);
+    goalByAge[g.age] = (goalByAge[g.age] || 0) + cost;
+  }
+  let corpus = state.invested;
+  const out = [];
+  for (let age = START_AGE; age <= END_AGE; age++) {
+    let goalHit = 0;
+    if (goalByAge[age]) { corpus -= goalByAge[age]; goalHit = goalByAge[age]; }
+    if (corpus < 0) corpus = 0;
+    // withdrawal % this year (post-ret): annual expense inflated / corpus at start
+    let wd = null;
+    const annualExp = annualExpBase * inflFactor(age);
+    if (age >= state.retireAge) {
+      wd = corpus > 0 ? (annualExp / corpus) * 100 : 100;
+    }
+    out.push({ age, corpus, goalHit, wd, annualExp });
+    // grow to next year
+    if (age < state.retireAge) {
+      corpus = corpus * (1 + preR) + annualSavings;
+    } else {
+      corpus = corpus * (1 + postBl) - annualExp;
+    }
+    if (corpus < 0) corpus = 0;
+  }
+  return out;
+}
+
+function depletionAge(sim) {
+  for (let i = 0; i < sim.length; i++) {
+    if (sim[i].age >= state.retireAge && sim[i].corpus <= 0) return sim[i].age;
+  }
+  return null;
+}
+
+// Corpus AT retirement (age == retireAge, after that year's goal deduction, before
+// post-ret growth) for a GIVEN annual savings amount. Linear in annualSavings, which
+// lets us solve for the required SIP. Includes lump sum growth + pre-ret goal deductions.
+function corpusAtRetFor(annualSavings) {
+  const preR = blended("pre");
+  const goalByAge = {};
+  for (const g of activeGoals()) {
+    if (g.age <= state.retireAge) {
+      const cost = g.today * Math.pow(1 + state.inflation / 100, g.age - START_AGE);
+      goalByAge[g.age] = (goalByAge[g.age] || 0) + cost;
+    }
+  }
+  let corpus = state.invested;
+  for (let age = START_AGE; age < state.retireAge; age++) {
+    if (goalByAge[age]) corpus -= goalByAge[age];
+    if (corpus < 0) corpus = 0;
+    corpus = corpus * (1 + preR) + annualSavings;
+  }
+  if (goalByAge[state.retireAge]) corpus -= goalByAge[state.retireAge];
+  return Math.max(0, corpus);
+}
+
+// Required corpus at retirement to sustain inflated expenses at the target WD%.
+function targetRetCorpus() {
+  const annualExpAtRet = totalExpenses() * 12 * inflFactor(state.retireAge);
+  return state.targetWd > 0 ? annualExpAtRet / (state.targetWd / 100) : Infinity;
+}
+
+// Monthly SIP (sinking fund) needed to accumulate `futureCost` over `yrs` years at
+// the pre-retirement blended return, compounded monthly.
+function sipFor(futureCost, yrs) {
+  const preR = blended("pre");
+  const months = Math.round(yrs * 12);
+  if (months <= 0) return futureCost;
+  const rm = Math.pow(1 + preR, 1 / 12) - 1;
+  if (Math.abs(rm) < 1e-9) return futureCost / months;
+  return futureCost * rm / (Math.pow(1 + rm, months) - 1);
+}
+
+// ---------- Renderers ----------
+function renderCore() {
+  const p = PRESETS[country], c = document.getElementById("coreSliders");
+  c.innerHTML = "";
+  makeSlider(c, { label: "Invested today", min: p.investMin, max: p.investMax, step: p.investStep,
+    value: state.invested, fmt: fmt, onInput: v => { state.invested = v; recalc(); } });
+  makeSlider(c, { label: "Retire age", min: 35, max: 65, step: 1, value: state.retireAge,
+    fmt: v => v + " yrs", onInput: v => { state.retireAge = v; recalc(); } });
+  makeSlider(c, { label: "Inflation per year", min: 2, max: 10, step: 0.5, value: state.inflation,
+    fmt: v => v + "%", onInput: v => { state.inflation = v; recalc(); } });
+  makeSlider(c, { label: "Current ₹/$ rate", min: p.rateMin, max: p.rateMax, step: 1, value: state.rate,
+    fmt: v => "₹" + v + "/$", onInput: v => { state.rate = v; recalc(); } });
+  makeSlider(c, { label: "INR depreciation per year", min: 0, max: 6, step: 0.5, value: state.depr,
+    fmt: v => v + "%", onInput: v => { state.depr = v; recalc(); } });
+  makeSlider(c, { label: "Target withdrawal %", min: 1, max: 10, step: 0.5, value: state.targetWd,
+    fmt: v => v + "%", onInput: v => { state.targetWd = v; recalc(); } });
+}
+
+function renderDerived() {
+  const preR = blended("pre"), postBl = blended("post");
+  const realReturn = (1 + postBl) / (1 + state.inflation / 100) - 1;
+  const fireMult = realReturn > 0 ? 1 / realReturn : Infinity;
+  const monthlyExp = totalExpenses();
+  const fireNumber = monthlyExp * 12 * (isFinite(fireMult) ? fireMult : 0);
+  const chips = [
+    ["Pre-ret blended", (preR * 100).toFixed(2) + "%"],
+    ["Post-ret blended", (postBl * 100).toFixed(2) + "%"],
+    ["Real return", (realReturn * 100).toFixed(2) + "%"],
+    ["FIRE multiple", isFinite(fireMult) ? fireMult.toFixed(1) + "×" : "∞"],
+    ["FIRE number today", isFinite(fireMult) ? fmt(fireNumber) : "—"],
+    ["Total expenses/mo", fmt(monthlyExp)],
+    ["Total savings/mo", fmt(totalInvest())],
+  ];
+  document.getElementById("derivedChips").innerHTML = chips.map(
+    ([k, v]) => `<div class="chip"><span>${k}</span><b>${v}</b></div>`).join("");
+}
+
+function renderAlloc() {
+  const body = document.getElementById("allocBody");
+  body.innerHTML = "";
+  for (const a of ASSETS) {
+    const tr = document.createElement("tr");
+    const tdName = document.createElement("td");
+    tdName.innerHTML = `<span style="color:${a.color}">●</span> ${a.label}`;
+    tr.appendChild(tdName);
+    for (const key of ["pre", "post", "ret"]) {
+      const td = document.createElement("td");
+      const mini = document.createElement("div"); mini.className = "mini";
+      const inp = document.createElement("input");
+      inp.type = "range"; inp.min = 0; inp.max = key === "ret" ? 20 : 100;
+      inp.step = key === "ret" ? 0.5 : 5; inp.value = state.alloc[a.id][key];
+      const v = document.createElement("span"); v.className = "minival";
+      v.textContent = state.alloc[a.id][key] + "%";
+      inp.addEventListener("input", () => {
+        state.alloc[a.id][key] = parseFloat(inp.value);
+        v.textContent = inp.value + "%";
+        recalc();
+      });
+      mini.appendChild(inp); mini.appendChild(v);
+      td.appendChild(mini); tr.appendChild(td);
+    }
+    body.appendChild(tr);
+  }
+  // total row
+  const preTot = ASSETS.reduce((s, a) => s + state.alloc[a.id].pre, 0);
+  const postTot = ASSETS.reduce((s, a) => s + state.alloc[a.id].post, 0);
+  const trt = document.createElement("tr"); trt.className = "total-row";
+  trt.innerHTML = `<td>Total</td>
+    <td class="${preTot === 100 ? 'good' : 'bad'}">${preTot}%</td>
+    <td class="${postTot === 100 ? 'good' : 'bad'}">${postTot}%</td>
+    <td></td>`;
+  body.appendChild(trt);
+  // bars
+  renderStackBar("preBar", ASSETS.map(a => ({ v: state.alloc[a.id].pre, color: a.color })));
+  renderStackBar("postBar", ASSETS.map(a => ({ v: state.alloc[a.id].post, color: a.color })));
+}
+
+function renderStackBar(id, parts) {
+  const el = document.getElementById(id);
+  const tot = parts.reduce((s, p) => s + p.v, 0) || 1;
+  el.innerHTML = parts.map(p =>
+    `<div style="width:${(p.v / tot * 100)}%;background:${p.color}"></div>`).join("");
+}
+
+function renderExpenses() {
+  document.getElementById("expTotal").textContent = fmt(totalExpenses()) + "/mo";
+  renderStackBar("expBar", EXP_CATS.map(c => ({ v: state.expenses[c.id] || 0, color: c.color })));
+  document.getElementById("expLegend").innerHTML = EXP_CATS.map(c =>
+    `<span><i style="background:${c.color}"></i>${c.label} ${fmt(state.expenses[c.id] || 0)}</span>`).join("");
+  // breakdown sliders (build once)
+  const box = document.getElementById("expBreak");
+  if (!box.dataset.built) {
+    const p = PRESETS[country];
+    for (const c of EXP_CATS) {
+      makeSlider(box, { label: c.label, min: 0, max: Math.max(p.expenses[c.id] * 4, country === "IN" ? 200000 : 5000),
+        step: country === "IN" ? 1000 : 50, value: state.expenses[c.id], fmt: fmtRaw,
+        onInput: v => { state.expenses[c.id] = v; recalc(); } });
+    }
+    box.dataset.built = "1";
+  }
+}
+
+function renderInvest() {
+  document.getElementById("invTotal").textContent = fmt(totalInvest()) + "/mo";
+  renderStackBar("invBar", INV_CATS.map(c => ({ v: state.invest[c.id] || 0, color: c.color })));
+  document.getElementById("invLegend").innerHTML = INV_CATS.map(c =>
+    `<span><i style="background:${c.color}"></i>${c.label} ${fmt(state.invest[c.id] || 0)}</span>`).join("");
+  const box = document.getElementById("invBreak");
+  if (!box.dataset.built) {
+    const p = PRESETS[country];
+    for (const c of INV_CATS) {
+      makeSlider(box, { label: c.label, min: 0, max: country === "IN" ? 1000000 : 30000,
+        step: country === "IN" ? 1000 : 100, value: state.invest[c.id], fmt: fmtRaw,
+        onInput: v => { state.invest[c.id] = v; recalc(); } });
+    }
+    box.dataset.built = "1";
+  }
+}
+
+function renderChildren() {
+  const cs = document.getElementById("childSliders");
+  cs.innerHTML = "";
+  for (let i = 0; i < state.children; i++) {
+    makeSlider(cs, { label: "Child " + (i + 1) + " education in", min: 1, max: 30, step: 1,
+      value: state.childYears[i], fmt: v => v + " yrs (your age: " + (START_AGE + v) + ")",
+      onInput: v => { state.childYears[i] = v; recalc(); } });
+  }
+  const cw = document.getElementById("childCostWrap");
+  cw.innerHTML = "";
+  if (state.children > 0) {
+    const p = PRESETS[country];
+    makeSlider(cw, { label: "Education cost per child", min: p.childCostMin, max: p.childCostMax,
+      step: p.childCostStep, value: state.childCost, fmt: fmt,
+      onInput: v => { state.childCost = v; recalc(); } });
+  }
+}
+
+function renderGoals() {
+  const grid = document.getElementById("goalGrid");
+  grid.innerHTML = "";
+  const p = PRESETS[country];
+  for (const g of GOALS) {
+    const gs = state.goals[g.id];
+    const card = document.createElement("div");
+    card.className = "goal-card" + (gs.on ? "" : " disabled");
+    const head = document.createElement("div"); head.className = "ghead";
+    const title = document.createElement("span"); title.textContent = g.label;
+    const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = gs.on;
+    cb.addEventListener("change", () => { gs.on = cb.checked; renderGoals(); recalc(); });
+    head.appendChild(title); head.appendChild(cb);
+    card.appendChild(head);
+    const inner = document.createElement("div");
+    makeSlider(inner, { label: "Target age", min: 31, max: 90, step: 1, value: gs.age,
+      fmt: v => "age " + v, onInput: v => { gs.age = v; recalc(); } });
+    makeSlider(inner, { label: g.amtLabel, min: 0, max: p.goalMax,
+      step: country === "IN" ? 100000 : 5000, value: gs.amount, fmt: fmt,
+      onInput: v => { gs.amount = v; recalc(); } });
+    card.appendChild(inner);
+    grid.appendChild(card);
+  }
+}
+
+function renderGoalSummary(simGoals, simNo) {
+  const goals = activeGoals();
+  let today = 0, adj = 0;
+  for (const g of goals) {
+    today += g.today;
+    adj += g.today * Math.pow(1 + state.inflation / 100, g.age - START_AGE);
+  }
+  const depNo = depletionAge(simNo);
+  const depGoals = depletionAge(simGoals);
+  const el = document.getElementById("goalSummary");
+  el.innerHTML =
+    `<span><i style="background:var(--exp1)"></i><b>Total today:</b>&nbsp;${fmt(today)}</span>
+     <span><i style="background:var(--exp5)"></i><b>Inflation-adjusted:</b>&nbsp;${fmt(adj)}</span>
+     <span><i style="background:var(--exp3)"></i><b>Without goals:</b>&nbsp;${depNo ? "depletes age " + depNo : "never depletes"}</span>
+     <span><i style="background:var(--exp1)"></i><b>With goals:</b>&nbsp;${depGoals ? "depletes age " + depGoals : "never depletes"}</span>`;
+}
+
+function renderFire(simGoals) {
+  const retIdx = simGoals.findIndex(s => s.age === state.retireAge);
+  const corpusAtRet = simGoals[retIdx].corpus;
+  const monthlyExp = totalExpenses();
+  const annualExpAtRet = monthlyExp * 12 * inflFactor(state.retireAge);
+  const required = annualExpAtRet / (state.targetWd / 100);
+  const canRetire = corpusAtRet >= required;
+  const diff = corpusAtRet - required;
+  const dep = depletionAge(simGoals);
+  const cards = [
+    { lbl: "Corpus at retirement (age " + state.retireAge + ")", big: fmt(corpusAtRet), cls: "" },
+    { lbl: "Retire at " + state.retireAge + " @ " + state.targetWd + "% WD?",
+      big: (canRetire ? "✅ YES" : "❌ NO"),
+      sub: (canRetire ? "Surplus " + fmt(diff) : "Shortfall " + fmt(-diff)),
+      cls: canRetire ? "yes" : "no" },
+    { lbl: "Corpus longevity", big: dep ? "Depletes age " + dep : "✅ Never depletes",
+      cls: dep ? "no" : "yes" },
+  ];
+  document.getElementById("fireCards").innerHTML = cards.map(c =>
+    `<div class="fire-card"><div class="lbl">${c.lbl}</div>
+       <div class="big ${c.cls}">${c.big}</div>
+       ${c.sub ? `<div class="small">${c.sub}</div>` : ""}</div>`).join("");
+}
+
+// ---------- Funding plan: required SIP / lump sum to retire ----------
+function renderFundingPlan() {
+  const preR = blended("pre");
+  const N = state.retireAge - START_AGE;
+  const growth = Math.pow(1 + preR, N);                 // lump-sum growth factor to retirement
+  const T = targetRetCorpus();                          // corpus needed at retirement
+  const c0 = corpusAtRetFor(0);                         // corpus from lump sum alone (+ goals)
+  const c1 = corpusAtRetFor(1);
+  const B = c1 - c0;                                    // retirement corpus added per ₹1/yr of SIP
+  const currentSIP = totalInvest(); // monthly
+  const currentCorpus = corpusAtRetFor(currentSIP * 12);
+  const shortfall = T - currentCorpus;                  // >0 means you need more
+  const canRetire = shortfall <= 0;
+
+  document.getElementById("fpAge").textContent = "age " + state.retireAge;
+  const box = document.getElementById("fundingPlan");
+
+  const head =
+    `<div class="fund-head">
+       Target corpus at <b>age ${state.retireAge}</b>: <b>${fmt(T)}</b>
+       &nbsp;·&nbsp; sustains <b>${fmt(totalExpenses())}/mo</b> (today) at a <b>${state.targetWd}%</b> withdrawal rate.<br>
+       Projected with your current <b>${fmt(currentSIP)}/mo</b> SIP + ${fmt(state.invested)} invested today:
+       <b>${fmt(currentCorpus)}</b>.
+     </div>`;
+
+  if (canRetire) {
+    // How low could the SIP go and still make it?
+    const minAnnual = B > 0 ? Math.max(0, (T - c0) / B) : 0;
+    const minMonthly = minAnnual / 12;
+    const banner = `<div class="fund-banner ok">✅ You're on track — projected surplus of ${fmt(currentCorpus - T)} at age ${state.retireAge}.</div>`;
+    const opt = minMonthly < currentSIP
+      ? `<div class="fund-grid">
+           <div class="fund-opt"><div class="otag">Minimum SIP still OK</div>
+             <div class="obig">${fmt(minMonthly)}/mo</div>
+             <div class="osub">You could cut your SIP by ${fmt(currentSIP - minMonthly)}/mo and still retire at ${state.retireAge}.</div></div>
+         </div>`
+      : "";
+    box.innerHTML = head + banner + opt + fundingNote();
+    return;
+  }
+
+  // Shortfall — three ways to close it
+  const addAnnual = B > 0 ? shortfall / B : Infinity;
+  const addSIP = addAnnual / 12;                         // extra monthly SIP
+  const totalSIP = currentSIP + addSIP;                  // total monthly SIP needed
+  const lumpNow = shortfall / growth;                    // one-time lump sum today
+  const mixLump = (shortfall / 2) / growth;              // 50% via lump sum today
+  const mixSIP = ((shortfall / 2) / B) / 12;             // 50% via extra SIP
+
+  const banner = `<div class="fund-banner gap">❌ Shortfall of ${fmt(shortfall)} at age ${state.retireAge}. Close it with any one of the options below.</div>`;
+  const grid =
+    `<div class="fund-grid">
+       <div class="fund-opt"><div class="otag">Option A · Pure SIP</div>
+         <div class="obig">${fmt(totalSIP)}/mo</div>
+         <div class="osub">Total monthly SIP needed (that's <b>${fmt(addSIP)}/mo more</b> than your current ${fmt(currentSIP)}/mo).</div></div>
+       <div class="fund-opt"><div class="otag">Option B · One-time lump sum</div>
+         <div class="obig">${fmt(lumpNow)}</div>
+         <div class="osub">Invest this once today (keeping your current ${fmt(currentSIP)}/mo SIP).</div></div>
+       <div class="fund-opt"><div class="otag">Option C · Mix (50 / 50)</div>
+         <div class="obig">${fmt(mixLump)} + ${fmt(mixSIP)}/mo</div>
+         <div class="osub">A lump sum today plus extra monthly SIP, on top of your current SIP.</div></div>
+     </div>`;
+  box.innerHTML = head + banner + grid + fundingNote();
+}
+
+function fundingNote() {
+  const preR = (blended("pre") * 100).toFixed(2);
+  return `<div class="note">
+     <b>How this is computed:</b> money compounds at your <b>pre-retirement blended return (${preR}%)</b> until age ${state.retireAge}.
+     The target corpus = inflation-adjusted annual expenses at retirement ÷ withdrawal %.
+     Life goals are paid out of this corpus (deducted at their target ages), so funding them here means a smaller
+     dedicated SIP per goal is optional. SIPs are compounded monthly.</div>`;
+}
+
+// ---------- Goal funding: dedicated SIP per goal ----------
+function renderGoalFunding() {
+  const box = document.getElementById("goalFunding");
+  const goals = activeGoals();
+  if (goals.length === 0) {
+    box.innerHTML = `<div class="note">No goals enabled yet. Add children or toggle a goal card above to see the dedicated monthly SIP each one needs.</div>`;
+    return;
+  }
+  let totalSIP = 0, rows = "";
+  for (const g of goals) {
+    const yrs = g.age - START_AGE;
+    const future = g.today * Math.pow(1 + state.inflation / 100, yrs);
+    const sip = sipFor(future, yrs);
+    totalSIP += sip;
+    rows += `<tr>
+      <td>${g.label}</td>
+      <td>age ${g.age}</td>
+      <td>${yrs} yr${yrs === 1 ? "" : "s"}</td>
+      <td>${fmt(g.today)}</td>
+      <td>${fmt(future)}</td>
+      <td><b>${fmt(sip)}/mo</b></td>
+    </tr>`;
+  }
+  box.innerHTML =
+    `<div style="overflow-x:auto"><table class="summary">
+       <thead><tr><th>Goal</th><th>Target</th><th>Years</th><th>Cost today</th><th>Infl-adj cost</th><th>SIP needed</th></tr></thead>
+       <tbody>${rows}
+         <tr class="total-row"><td><b>All goals</b></td><td></td><td></td><td></td><td></td><td><b>${fmt(totalSIP)}/mo</b></td></tr>
+       </tbody>
+     </table></div>
+     <div class="note">Each row is a <b>standalone sinking fund</b>: the monthly SIP that, compounded at your pre-retirement blended return, grows to the inflation-adjusted cost by the target age. Use this if you'd rather earmark a separate SIP for each goal instead of paying them from your main retirement corpus.</div>`;
+}
+
+// ---------- Chart ----------
+let chart = null, chartMode = "corpus";
+function renderChart(simGoals, simNo, simRef) {
+  const labels = simGoals.filter(s => s.age >= 35).map(s => s.age);
+  const filt = arr => arr.filter(s => s.age >= 35);
+  const ctx = document.getElementById("mainChart");
+  let datasets;
+  const goalPoints = filt(simGoals).map(s => s.goalHit > 0 ? (chartMode === "corpus" ? s.corpus : s.wd) : null);
+  if (chartMode === "corpus") {
+    datasets = [
+      { label: "Your plan (with goals)", data: filt(simGoals).map(s => s.corpus),
+        borderColor: "#4ECDC4", backgroundColor: "rgba(78,205,196,.08)", fill: true, tension: .25, pointRadius: 0 },
+      { label: "No goals", data: filt(simNo).map(s => s.corpus),
+        borderColor: "#185FA5", borderDash: [6, 4], tension: .25, pointRadius: 0, fill: false },
+      { label: "8% blend reference", data: filt(simRef).map(s => s.corpus),
+        borderColor: "#FF6B6B", borderDash: [3, 3], tension: .25, pointRadius: 0, fill: false },
+      { label: "Goal hits", data: goalPoints,
+        borderColor: "#FF6B6B", backgroundColor: "#FF6B6B", showLine: false,
+        pointStyle: "triangle", pointRadius: 9, pointRotation: 180 },
+    ];
+  } else {
+    datasets = [
+      { label: "Your plan (with goals)", data: filt(simGoals).map(s => s.wd),
+        borderColor: "#4ECDC4", tension: .25, pointRadius: 0, fill: false, spanGaps: true },
+      { label: "No goals", data: filt(simNo).map(s => s.wd),
+        borderColor: "#185FA5", borderDash: [6, 4], tension: .25, pointRadius: 0, fill: false, spanGaps: true },
+      { label: "8% blend reference", data: filt(simRef).map(s => s.wd),
+        borderColor: "#FF6B6B", borderDash: [3, 3], tension: .25, pointRadius: 0, fill: false, spanGaps: true },
+      { label: "Goal hits", data: goalPoints,
+        borderColor: "#FF6B6B", backgroundColor: "#FF6B6B", showLine: false,
+        pointStyle: "triangle", pointRadius: 9, pointRotation: 180 },
+    ];
+  }
+  const target = state.targetWd;
+  const cfg = {
+    type: "line",
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { labels: { color: "#5a6675", boxWidth: 14, filter: i => i.text !== "Goal hits" } },
+        tooltip: {
+          callbacks: {
+            label: c => {
+              if (c.dataset.label === "Goal hits") return c.raw != null ? "🎯 Goal hits here" : null;
+              if (chartMode === "corpus") return c.dataset.label + ": " + fmt(c.raw);
+              return c.dataset.label + ": " + (c.raw == null ? "—" : c.raw.toFixed(1) + "%");
+            }
+          }
+        },
+        annotation: {}
+      },
+      scales: {
+        x: { ticks: { color: "#8a96a4" }, grid: { color: "rgba(0,0,0,.06)" }, title: { display: true, text: "Age", color: "#8a96a4" } },
+        y: chartMode === "corpus"
+          ? { ticks: { color: "#8a96a4", callback: v => fmt(v) }, grid: { color: "rgba(0,0,0,.06)" } }
+          : { min: 0, max: 20, ticks: { color: "#8a96a4", callback: v => v + "%" }, grid: { color: "rgba(0,0,0,.06)" } }
+      }
+    },
+    plugins: [{
+      id: "wdzones",
+      beforeDraw(c) {
+        if (chartMode !== "wd") return;
+        const { ctx, chartArea: ca, scales } = c;
+        if (!ca) return;
+        const y = scales.y;
+        const zone = (lo, hi, col) => {
+          const yhi = y.getPixelForValue(Math.min(hi, 20)), ylo = y.getPixelForValue(lo);
+          ctx.save(); ctx.fillStyle = col;
+          ctx.fillRect(ca.left, yhi, ca.right - ca.left, ylo - yhi); ctx.restore();
+        };
+        zone(0, 4, "rgba(17,155,144,.10)");
+        zone(4, 8, "rgba(214,158,46,.12)");
+        zone(8, 20, "rgba(229,72,72,.12)");
+        // target line
+        const yp = y.getPixelForValue(target);
+        ctx.save(); ctx.strokeStyle = "#1a2230"; ctx.setLineDash([5, 4]);
+        ctx.beginPath(); ctx.moveTo(ca.left, yp); ctx.lineTo(ca.right, yp); ctx.stroke();
+        ctx.fillStyle = "#1a2230"; ctx.setLineDash([]);
+        ctx.fillText("Target " + target + "%", ca.left + 6, yp - 4); ctx.restore();
+      }
+    }]
+  };
+  if (chart) chart.destroy();
+  chart = new Chart(ctx, cfg);
+}
+
+// ---------- Age cards ----------
+function renderAgeCards(simGoals) {
+  const ages = [35, state.retireAge, 65, 100];
+  const colors = ["var(--age1)", "var(--age2)", "var(--age3)", "var(--age4)"];
+  const monthlyExp = totalExpenses();
+  const el = document.getElementById("ageCards");
+  el.innerHTML = "";
+  ages.forEach((age, i) => {
+    const s = simGoals.find(x => x.age === age) || simGoals[simGoals.length - 1];
+    const nominal = s.corpus;
+    const real = nominal / inflFactor(age);
+    const fr = futureRate(age);
+    const usd = country === "IN" ? nominal / fr : nominal;
+    const phase = age < state.retireAge ? "Accumulating" : "Retired";
+    const realPct = nominal > 0 ? Math.max(0, Math.min(100, real / nominal * 100)) : 0;
+    let incomeRow = "", surplusRow = "", goalRow = "";
+    if (age >= state.retireAge) {
+      const realMonthlyIncome = (nominal * (state.targetWd / 100) / 12) / inflFactor(age);
+      const realMonthlyExp = monthlyExp; // expenses defined in today's money
+      const realSurplus = realMonthlyIncome - realMonthlyExp;
+      incomeRow = `<div class="row"><span>Real income/mo</span><b>${fmt(realMonthlyIncome)}</b></div>`;
+      surplusRow = `<div class="row"><span>Real surplus/mo</span><b class="${realSurplus >= 0 ? 'good' : 'bad'}">${fmt(realSurplus)}</b></div>`;
+    }
+    if (s.goalHit > 0) goalRow = `<div class="row"><span>Goals deducted</span><b class="bad">${fmt(s.goalHit)}</b></div>`;
+    const card = document.createElement("div");
+    card.className = "age-card";
+    card.style.borderLeftColor = colors[i];
+    card.innerHTML = `
+      <div class="atop"><div><b>Age ${age}</b></div><div class="phase">${phase}</div></div>
+      <div class="nw">${fmt(nominal)}</div>
+      <div class="row"><span>Real NW (today)</span><b>${fmt(real)}</b></div>
+      <div class="realbar"><div style="width:${realPct}%"></div></div>
+      <div class="row"><span>Future ₹/$ rate</span><b>₹${fr.toFixed(0)}</b></div>
+      <div class="row"><span>USD equiv</span><b>$${(usd).toLocaleString("en-US", { maximumFractionDigits: 0 })}</b></div>
+      ${incomeRow}${surplusRow}${goalRow}`;
+    el.appendChild(card);
+  });
+}
+
+// ---------- Summary table ----------
+function renderSummary(simGoals) {
+  const rows = [35, 40, state.retireAge, 50, 55, 60, 65, 70, 80, 90, 100];
+  const uniq = [...new Set(rows)].sort((a, b) => a - b);
+  const monthlyExp = totalExpenses();
+  const monthlyInv = totalInvest();
+  const body = document.getElementById("summaryBody");
+  body.innerHTML = uniq.map(age => {
+    const s = simGoals.find(x => x.age === age);
+    if (!s) return "";
+    const real = s.corpus / inflFactor(age);
+    const usd = country === "IN" ? s.corpus / futureRate(age) : s.corpus;
+    const retired = age >= state.retireAge;
+    const incomeMo = retired ? s.corpus * (state.targetWd / 100) / 12 : 0;
+    const expMo = monthlyExp * inflFactor(age);
+    const surplusVal = retired ? incomeMo - expMo : monthlyInv;
+    return `<tr>
+      <td>${age}${retired ? " 🏖️" : ""}</td>
+      <td>${fmt(s.corpus)}</td>
+      <td>${fmt(real)}</td>
+      <td>$${usd.toLocaleString("en-US", { maximumFractionDigits: 0 })}</td>
+      <td>${retired ? fmt(incomeMo) : "—"}</td>
+      <td>${fmt(expMo)}</td>
+      <td class="${surplusVal >= 0 ? 'good' : 'bad'}">${fmt(surplusVal)}</td>
+      <td>${s.wd == null ? "—" : s.wd.toFixed(1) + "%"}</td>
+      <td>${s.goalHit > 0 ? fmt(s.goalHit) : ""}</td>
+    </tr>`;
+  }).join("");
+}
+
+// ---------- Master recalc ----------
+function recalc() {
+  renderDerived();
+  // bars/totals that depend on state but not full rebuild
+  renderStackBar("preBar", ASSETS.map(a => ({ v: state.alloc[a.id].pre, color: a.color })));
+  renderStackBar("postBar", ASSETS.map(a => ({ v: state.alloc[a.id].post, color: a.color })));
+  // update alloc total row colors
+  const preTot = ASSETS.reduce((s, a) => s + state.alloc[a.id].pre, 0);
+  const postTot = ASSETS.reduce((s, a) => s + state.alloc[a.id].post, 0);
+  const trt = document.querySelector("#allocBody .total-row");
+  if (trt) trt.innerHTML = `<td>Total</td>
+    <td class="${preTot === 100 ? 'good' : 'bad'}">${preTot}%</td>
+    <td class="${postTot === 100 ? 'good' : 'bad'}">${postTot}%</td><td></td>`;
+  renderExpenses();
+  renderInvest();
+
+  const simGoals = simulate({ includeGoals: true });
+  const simNo = simulate({ includeGoals: false });
+  const simRef = simulate({ includeGoals: true, preOverride: 0.08, postOverride: 0.08 });
+
+  renderGoalSummary(simGoals, simNo);
+  renderFire(simGoals);
+  renderFundingPlan();
+  renderGoalFunding();
+  renderChart(simGoals, simNo, simRef);
+  renderAgeCards(simGoals);
+  renderSummary(simGoals);
+}
+
+// ---------- Full rebuild (on country switch / structural change) ----------
+function rebuildAll() {
+  renderCore();
+  renderAlloc();
+  // reset breakdown built flags so they rebuild with new defaults
+  const eb = document.getElementById("expBreak"); eb.innerHTML = ""; delete eb.dataset.built;
+  const ib = document.getElementById("invBreak"); ib.innerHTML = ""; delete ib.dataset.built;
+  renderChildren();
+  renderGoals();
+  recalc();
+}
+
+// ---------- Event wiring ----------
+document.getElementById("countryToggle").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  country = b.dataset.c;
+  [...e.currentTarget.children].forEach(x => x.classList.toggle("active", x === b));
+  // Keep all entered values; only currency formatting and slider ranges change.
+  rebuildAll();
+});
+document.getElementById("childPills").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  state.children = parseInt(b.dataset.n);
+  [...e.currentTarget.children].forEach(x => x.classList.toggle("active", x === b));
+  renderChildren();
+  recalc();
+});
+document.getElementById("chartTabs").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  chartMode = b.dataset.t;
+  [...e.currentTarget.children].forEach(x => x.classList.toggle("active", x === b));
+  recalc();
+});
+document.querySelectorAll(".toggle-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const t = document.getElementById(btn.dataset.target);
+    const hidden = t.classList.toggle("collapsed");
+    btn.textContent = (hidden ? "▼" : "▲") + " Category breakdown";
+  });
+});
+
+// ---------- Init ----------
+applyPreset();
+rebuildAll();
+</script>
+</body>
+</html>
