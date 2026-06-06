@@ -211,3 +211,46 @@ table.summary td:first-child,table.summary th:first-child{text-align:left}
 .alloc .mini input[type=range]{height:14px;cursor:pointer}
 .alloc .mini input[type=range]::-webkit-slider-thumb{width:16px;height:16px}
 .alloc .mini input[type=range]::-moz-range-thumb{width:16px;height:16px}
+
+/* --- Mobile / responsive hardening (added) --- */
+/* Never let the document scroll horizontally on phones. */
+html,body{max-width:100%;overflow-x:hidden}
+/* Grid items (rail + main) must be allowed to shrink below their content size,
+   otherwise wide tables/charts force the whole single column past the viewport. */
+.layout>.rail,.layout>.main{min-width:0}
+/* Chart canvas should fit its box, never push the page wide. */
+.chart-box canvas{max-width:100%!important}
+/* Wide data tables scroll inside their own card instead of the page. */
+.summary-scroll,.alloc-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+@media(max-width:640px){
+  /* Top bar: let it wrap and keep actions reachable, drop the long badge. */
+  .topbar{flex-wrap:wrap;gap:8px 12px;padding:10px 14px}
+  .topbar-mid{flex-basis:100%;order:3;font-size:13px}
+  .topbar-actions{margin-left:auto;gap:8px}
+  .local-badge{display:none}
+  .brand{font-size:15px}
+  .main{padding:14px}
+  .card{padding:14px;border-radius:12px}
+  h2{font-size:16px}
+  /* Single-column everywhere on small screens. */
+  .grid4,.fund-grid,.fire-cards,.strat-grid{grid-template-columns:1fr}
+  /* Allocation table: a touch tighter so the sliders still fit. */
+  table.alloc input[type=range]{width:64px}
+  table.alloc th,table.alloc td{padding:6px 5px}
+  /* Goals child row can wrap. */
+  .child-row{flex-wrap:wrap;gap:8px 14px}
+  /* Modals use the full width with breathing room. */
+  .modal-overlay{padding:12px}
+  .modal{padding:18px}
+  .country-form{grid-template-columns:1fr}
+  /* Bigger touch targets for the main sliders. */
+  input[type=range]{height:8px}
+  input[type=range]::-webkit-slider-thumb{width:22px;height:22px}
+  input[type=range]::-moz-range-thumb{width:22px;height:22px}
+  .chart-box{height:300px}
+}
+@media(max-width:380px){
+  .pills button{width:34px}
+  .tabs button{padding:7px 10px}
+}
