@@ -208,9 +208,15 @@ function buildInputs() {
 function buildCore() {
   const c = $('coreSliders'); c.innerHTML = '';
   const cc = plan.country;
+  makeSlider(c, { label: 'Current age', min: 18, max: 70, step: 1, value: plan.startAge,
+    fmt: v => v + ' yrs', onInput: v => {
+      plan.startAge = v;
+      if (plan.retireAge <= v) plan.retireAge = v + 1;   // keep retirement after current age
+      buildInputs(); refresh();                          // dependent bounds/labels change
+    } });
   makeSlider(c, { label: 'Invested today', min: cc.investedMin, max: cc.investedMax, step: cc.investedStep,
     value: plan.invested, fmt: money, onInput: v => { plan.invested = v; refresh(); } });
-  makeSlider(c, { label: 'Retire age', min: 35, max: 65, step: 1, value: plan.retireAge,
+  makeSlider(c, { label: 'Retire age', min: plan.startAge + 1, max: Math.max(plan.startAge + 5, 75), step: 1, value: plan.retireAge,
     fmt: v => v + ' yrs', onInput: v => { plan.retireAge = v; refresh(); } });
   makeSlider(c, { label: 'Inflation per year', min: 0, max: 12, step: 0.5, value: plan.inflation,
     fmt: v => v + '%', onInput: v => { plan.inflation = v; refresh(); } });
@@ -271,7 +277,7 @@ function buildChildren() {
   [...$('childPills').children].forEach(b => b.classList.toggle('active', +b.dataset.n === plan.children));
   for (let i = 0; i < plan.children; i++) {
     makeSlider(cs, { label: `Child ${i + 1} education in`, min: 1, max: 30, step: 1, value: plan.childYears[i] ?? 18,
-      fmt: v => `${v} yrs (your age ${E.START_AGE + v})`, onInput: v => { plan.childYears[i] = v; refresh(); } });
+      fmt: v => `${v} yrs (your age ${plan.startAge + v})`, onInput: v => { plan.childYears[i] = v; refresh(); } });
   }
   const cw = $('childCostWrap'); cw.innerHTML = '';
   if (plan.children > 0) {
@@ -293,7 +299,7 @@ function buildGoals() {
     cb.onchange = () => { gs.on = cb.checked; buildGoals(); refresh(); };
     head.appendChild(cb); card.appendChild(head);
     const inner = document.createElement('div');
-    makeSlider(inner, { label: 'Target age', min: 31, max: 90, step: 1, value: gs.age,
+    makeSlider(inner, { label: 'Target age', min: plan.startAge + 1, max: 90, step: 1, value: gs.age,
       fmt: v => 'age ' + v, onInput: v => { gs.age = v; refresh(); } });
     makeSlider(inner, { label: g.amtLabel, min: 0, max: big ? 50000000 : 1000000, step: big ? 100000 : 5000,
       value: gs.amount, fmt: money, onInput: v => { gs.amount = v; refresh(); } });

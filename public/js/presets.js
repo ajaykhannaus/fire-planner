@@ -135,6 +135,7 @@ export function planFromPreset(code) {
       code: p.code, name: p.name, flag: p.flag, symbol: p.symbol, numberStyle: p.numberStyle,
       investedMin: p.investedMin, investedMax: p.investedMax, investedStep: p.investedStep,
     },
+    startAge: 30,            // current age — drives the whole simulation horizon
     invested: p.investedDefault,
     retireAge: 45,
     inflation: p.inflation,

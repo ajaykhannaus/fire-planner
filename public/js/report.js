@@ -1,6 +1,6 @@
 // PDF report generator. Uses jsPDF (window.jspdf.jsPDF) + jspdf-autotable (CDN).
 // Produces a multi-section downloadable PDF summarizing the whole plan.
-import { START_AGE } from './engine.js';
+import { startAge } from './engine.js';
 import { buildStrategies } from './strategies.js';
 import { fmtPct } from './format.js';
 
@@ -91,7 +91,7 @@ export function generateReport(plan, R, ctx = {}) {
   table(
     ['Assumption', 'Value'],
     [
-      ['Current age', String(START_AGE)],
+      ['Current age', String(startAge(plan))],
       ['Target retirement age', String(plan.retireAge)],
       ['Currently invested', money(plan.invested)],
       ['Monthly investments', money(R.monthlyInv) + '/mo'],

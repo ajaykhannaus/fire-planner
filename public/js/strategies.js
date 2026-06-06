@@ -1,6 +1,6 @@
 // Generates a briefing of strategies ("plans you can make in your career") to reach
 // FIRE and fund goals, with concrete numbers derived from the engine.
-import { corpusAtRetFor, targetRetCorpus, blended, totalExpenses, totalInvest, inflFactor, START_AGE } from './engine.js';
+import { corpusAtRetFor, targetRetCorpus, blended, totalExpenses, totalInvest, inflFactor, startAge } from './engine.js';
 
 // On-track check for a hypothetical retire age, keeping current savings.
 function onTrackAt(plan, retireAge) {
@@ -11,7 +11,7 @@ function onTrackAt(plan, retireAge) {
 export function buildStrategies(plan, R) {
   const out = [];
   const preR = R.preR;
-  const N = plan.retireAge - START_AGE;
+  const N = plan.retireAge - startAge(plan);
   const monthlyExp = R.monthlyExp;
   const monthlyInv = R.monthlyInv;
 

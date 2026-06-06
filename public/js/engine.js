@@ -1,8 +1,11 @@
 // Pure finance engine. No DOM. Takes a `plan` object, returns numbers.
 import { ASSETS, EXP_CATS, INV_CATS, GOALS } from './presets.js';
 
-export const START_AGE = 30;
+export const START_AGE = 30;   // default current age when a plan doesn't specify one
 export const END_AGE = 100;
+
+// The plan's current age (the simulation's starting age). Falls back to START_AGE.
+export const startAge = (plan) => plan.startAge ?? START_AGE;
 
 export function blended(plan, phase) {
   let wsum = 0, num = 0;
@@ -15,14 +18,14 @@ export function blended(plan, phase) {
 
 export const totalExpenses = (plan) => EXP_CATS.reduce((s, c) => s + (plan.expenses[c.id] || 0), 0);
 export const totalInvest = (plan) => INV_CATS.reduce((s, c) => s + (plan.invest[c.id] || 0), 0);
-export const inflFactor = (plan, age) => Math.pow(1 + plan.inflation / 100, age - START_AGE);
-export const futureRate = (plan, age) => plan.fxRate * Math.pow(1 + plan.depr / 100, age - START_AGE);
+export const inflFactor = (plan, age) => Math.pow(1 + plan.inflation / 100, age - startAge(plan));
+export const futureRate = (plan, age) => plan.fxRate * Math.pow(1 + plan.depr / 100, age - startAge(plan));
 
 export function activeGoals(plan) {
   const list = [];
   for (let i = 0; i < plan.children; i++) {
     const yrs = plan.childYears[i] ?? 18;
-    list.push({ label: `Child ${i + 1} education`, icon: '👶', age: START_AGE + yrs, today: plan.childCost,
+    list.push({ label: `Child ${i + 1} education`, icon: '👶', age: startAge(plan) + yrs, today: plan.childCost,
       financed: false, downPct: 100, loanRate: 0, loanYears: 0, appr: 0 });
   }
   for (const g of GOALS) {
@@ -51,7 +54,7 @@ export function emiMonthly(P, ratePct, years) {
 //   emi      = monthly loan payment, active over [loanStart, loanEnd)
 //   appr     = annual appreciation %, applied to `future` from the goal age onward
 export function goalImpact(plan, g) {
-  const yrs = g.age - START_AGE;
+  const yrs = g.age - startAge(plan);
   const future = g.today * Math.pow(1 + plan.inflation / 100, yrs);
   if (g.financed) {
     const down = future * (g.downPct / 100);
@@ -77,7 +80,7 @@ export function simulate(plan, opts = {}) {
 
   let corpus = plan.invested;
   const out = [];
-  for (let age = START_AGE; age <= END_AGE; age++) {
+  for (let age = startAge(plan); age <= END_AGE; age++) {
     let goalHit = 0, emiYear = 0, assetValue = 0;
     for (const { g, imp } of impacts) {
       if (age === g.age) { corpus -= imp.lump; goalHit += imp.lump; }
@@ -115,7 +118,7 @@ export function corpusAtRetFor(plan, annualSavings) {
     }
   }
   let corpus = plan.invested;
-  for (let age = START_AGE; age < plan.retireAge; age++) {
+  for (let age = startAge(plan); age < plan.retireAge; age++) {
     if (goalByAge[age]) corpus -= goalByAge[age];
     if (corpus < 0) corpus = 0;
     corpus = corpus * (1 + preR) + annualSavings;
@@ -160,7 +163,7 @@ export function compute(plan) {
   const dep = depletionAge(plan, simGoals);
 
   // ---- funding plan ----
-  const N = plan.retireAge - START_AGE;
+  const N = plan.retireAge - startAge(plan);
   const growth = Math.pow(1 + preR, N);
   const c0 = corpusAtRetFor(plan, 0);
   const B = corpusAtRetFor(plan, 1) - c0;        // retirement corpus added per 1/yr SIP
@@ -178,7 +181,7 @@ export function compute(plan) {
   const goals = activeGoals(plan);
   let goalSIPtotal = 0, goalTodayTotal = 0, goalAdjTotal = 0, goalEMItotal = 0;
   const goalRows = goals.map(g => {
-    const yrs = g.age - START_AGE;
+    const yrs = g.age - startAge(plan);
     const imp = goalImpact(plan, g);
     // Dedicated SIP saves up the cash you pay at the goal age (full cost, or the
     // down payment if financed). A financed goal then carries a separate EMI.
@@ -193,8 +196,10 @@ export function compute(plan) {
     };
   });
 
-  // ---- age snapshots ----
-  const snapAges = [35, plan.retireAge, 65, 100];
+  // ---- age snapshots ---- (kept within [startAge, END_AGE], distinct, sorted)
+  const sa = startAge(plan);
+  const snapAges = [...new Set([Math.max(35, sa), plan.retireAge, 65, END_AGE]
+    .filter(a => a >= sa && a <= END_AGE))].sort((a, b) => a - b);
   const snapshots = snapAges.map(age => {
     const s = simGoals.find(x => x.age === age) || simGoals[simGoals.length - 1];
     const nominal = s.corpus;
@@ -208,8 +213,9 @@ export function compute(plan) {
       realIncome, realSurplus, goalHit: s.goalHit, assetValue: s.assetValue || 0, netWorth: s.netWorth || nominal };
   });
 
-  // ---- summary rows ----
-  const sumAges = [...new Set([35, 40, plan.retireAge, 50, 55, 60, 65, 70, 80, 90, 100])].sort((a, b) => a - b);
+  // ---- summary rows ---- (only ages at/after the current age)
+  const sumAges = [...new Set([sa, 35, 40, plan.retireAge, 50, 55, 60, 65, 70, 80, 90, 100]
+    .filter(a => a >= sa && a <= END_AGE))].sort((a, b) => a - b);
   const summary = sumAges.map(age => {
     const s = simGoals.find(x => x.age === age);
     const real = s.corpus / inflFactor(plan, age);
