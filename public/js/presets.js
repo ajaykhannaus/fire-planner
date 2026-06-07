@@ -45,7 +45,7 @@ export const GOALS = [
 export const PRESETS = {
   IN: {
     code: 'IN', name: 'India', flag: '🇮🇳', symbol: '₹', numberStyle: 'indian',
-    inflation: 6, depr: 3, fxRate: 83,
+    inflation: 6, depr: 3, fxRate: 83, taxWd: 12.5,   // LTCG on equity
     returns: { us: 12, mf: 12, epf: 8, fd: 7 },
     expenses: { food: 12000, rent: 18000, util: 4000, lux: 6000, car: 5000, emi: 0, other: 5000 }, // ₹50k/mo total
     investedMin: 500000, investedMax: 500000000, investedStep: 500000, investedDefault: 10000000,  // ₹1cr
@@ -54,7 +54,7 @@ export const PRESETS = {
   },
   US: {
     code: 'US', name: 'United States', flag: '🇺🇸', symbol: '$', numberStyle: 'western',
-    inflation: 3, depr: 0, fxRate: 1,
+    inflation: 3, depr: 0, fxRate: 1, taxWd: 15,   // long-term capital gains
     returns: { us: 10, mf: 9, epf: 7, fd: 4.5 },
     expenses: { food: 800, rent: 1500, util: 300, lux: 600, car: 400, emi: 300, other: 100 },
     investedMin: 10000, investedMax: 20000000, investedStep: 10000, investedDefault: 500000,
@@ -63,7 +63,7 @@ export const PRESETS = {
   },
   GB: {
     code: 'GB', name: 'United Kingdom', flag: '🇬🇧', symbol: '£', numberStyle: 'western',
-    inflation: 3, depr: 0.5, fxRate: 0.79,
+    inflation: 3, depr: 0.5, fxRate: 0.79, taxWd: 10,
     returns: { us: 9, mf: 8, epf: 6.5, fd: 4.5 },
     expenses: { food: 500, rent: 1400, util: 280, lux: 500, car: 350, emi: 400, other: 120 },
     investedMin: 10000, investedMax: 15000000, investedStep: 10000, investedDefault: 400000,
@@ -72,7 +72,7 @@ export const PRESETS = {
   },
   EU: {
     code: 'EU', name: 'Eurozone', flag: '🇪🇺', symbol: '€', numberStyle: 'western',
-    inflation: 2.5, depr: 0, fxRate: 0.92,
+    inflation: 2.5, depr: 0, fxRate: 0.92, taxWd: 15,
     returns: { us: 9, mf: 8, epf: 6, fd: 4 },
     expenses: { food: 550, rent: 1300, util: 300, lux: 500, car: 350, emi: 400, other: 120 },
     investedMin: 10000, investedMax: 15000000, investedStep: 10000, investedDefault: 400000,
@@ -81,7 +81,7 @@ export const PRESETS = {
   },
   AE: {
     code: 'AE', name: 'UAE', flag: '🇦🇪', symbol: 'AED ', numberStyle: 'western',
-    inflation: 2.5, depr: 0, fxRate: 3.67,
+    inflation: 2.5, depr: 0, fxRate: 3.67, taxWd: 0,   // no personal capital-gains tax
     returns: { us: 10, mf: 8, epf: 0, fd: 5 },
     expenses: { food: 2500, rent: 6000, util: 800, lux: 2000, car: 1500, emi: 2000, other: 700 },
     investedMin: 50000, investedMax: 50000000, investedStep: 50000, investedDefault: 1500000,
@@ -90,7 +90,7 @@ export const PRESETS = {
   },
   SG: {
     code: 'SG', name: 'Singapore', flag: '🇸🇬', symbol: 'S$', numberStyle: 'western',
-    inflation: 2.5, depr: 0, fxRate: 1.35,
+    inflation: 2.5, depr: 0, fxRate: 1.35, taxWd: 0,   // no capital-gains tax
     returns: { us: 9, mf: 8, epf: 4, fd: 3.5 },
     expenses: { food: 900, rent: 2800, util: 250, lux: 800, car: 900, emi: 1200, other: 300 },
     investedMin: 20000, investedMax: 30000000, investedStep: 20000, investedDefault: 800000,
@@ -99,7 +99,7 @@ export const PRESETS = {
   },
   AU: {
     code: 'AU', name: 'Australia', flag: '🇦🇺', symbol: 'A$', numberStyle: 'western',
-    inflation: 3, depr: 1, fxRate: 1.52,
+    inflation: 3, depr: 1, fxRate: 1.52, taxWd: 15,
     returns: { us: 9, mf: 8.5, epf: 7, fd: 4.5 },
     expenses: { food: 900, rent: 2200, util: 350, lux: 700, car: 500, emi: 600, other: 200 },
     investedMin: 20000, investedMax: 30000000, investedStep: 20000, investedDefault: 700000,
@@ -108,7 +108,7 @@ export const PRESETS = {
   },
   CA: {
     code: 'CA', name: 'Canada', flag: '🇨🇦', symbol: 'C$', numberStyle: 'western',
-    inflation: 3, depr: 1, fxRate: 1.36,
+    inflation: 3, depr: 1, fxRate: 1.36, taxWd: 13,
     returns: { us: 9, mf: 8, epf: 6.5, fd: 4.5 },
     expenses: { food: 800, rent: 1900, util: 300, lux: 600, car: 450, emi: 500, other: 200 },
     investedMin: 20000, investedMax: 30000000, investedStep: 20000, investedDefault: 600000,
@@ -142,6 +142,8 @@ export function planFromPreset(code) {
     fxRate: p.fxRate,        // local currency per 1 USD
     depr: p.depr,            // local-currency depreciation vs USD per year (%)
     targetWd: 4,
+    taxWd: p.taxWd ?? 0,     // tax on retirement withdrawals (%) — grosses up the draw
+
     separateGoals: false,
     alloc: {
       us:  { pre: 30, post: 15, ret: p.returns.us },

@@ -26,6 +26,10 @@ export function blended(plan, phase) {
   return wsum > 0 ? (num / wsum) / 100 : 0;
 }
 
+// Withdrawal tax as a fraction in [0, 0.95]. To net `E` of spending in retirement
+// you must withdraw E/(1-tax) from the corpus; the rest goes to tax.
+export const taxRate = (plan) => Math.min(0.95, Math.max(0, (plan.taxWd || 0) / 100));
+
 export const totalExpenses = (plan) => EXP_CATS.reduce((s, c) => s + (plan.expenses[c.id] || 0), 0);
 export const totalInvest = (plan) => INV_CATS.reduce((s, c) => s + (plan.invest[c.id] || 0), 0);
 export const inflFactor = (plan, age) => Math.pow(1 + plan.inflation / 100, age - startAge(plan));
@@ -83,6 +87,7 @@ export function simulate(plan, opts = {}) {
   const postBl = opts.postOverride != null ? opts.postOverride : blended(plan, 'post');
   const annualExpBase = totalExpenses(plan) * 12;
   const annualSavings = (opts.savingsOverride != null ? opts.savingsOverride : totalInvest(plan)) * 12;
+  const tax = taxRate(plan);
   const useGoals = opts.includeGoals && deductsGoals(plan);
 
   // Pre-expand each goal into lump / EMI / appreciation schedule.
@@ -100,11 +105,14 @@ export function simulate(plan, opts = {}) {
     if (corpus < 0) corpus = 0;
     // EMIs are an ongoing expense that carries into retirement.
     const annualExp = annualExpBase * inflFactor(plan, age) + emiYear;
+    // The gross draw needed from the corpus to net `annualExp` after withdrawal tax.
+    const grossExp = annualExp / (1 - tax);
+    const taxPaid = grossExp - annualExp;
     let wd = null;
-    if (age >= plan.retireAge) wd = corpus > 0 ? (annualExp / corpus) * 100 : 100;
-    out.push({ age, corpus, goalHit, wd, annualExp, emi: emiYear, assetValue, netWorth: corpus + assetValue });
+    if (age >= plan.retireAge) wd = corpus > 0 ? (grossExp / corpus) * 100 : 100;
+    out.push({ age, corpus, goalHit, wd, annualExp, grossExp, tax: taxPaid, emi: emiYear, assetValue, netWorth: corpus + assetValue });
     if (age < plan.retireAge) corpus = corpus * (1 + preR) + annualSavings;
-    else corpus = corpus * (1 + postBl) - annualExp;
+    else corpus = corpus * (1 + postBl) - grossExp;
     if (corpus < 0) corpus = 0;
   }
   return out;
@@ -139,7 +147,10 @@ export function corpusAtRetFor(plan, annualSavings) {
 
 export function targetRetCorpus(plan) {
   const annualExpAtRet = totalExpenses(plan) * 12 * inflFactor(plan, plan.retireAge);
-  return plan.targetWd > 0 ? annualExpAtRet / (plan.targetWd / 100) : Infinity;
+  // Withdraw at targetWd%; the draw is taxed, so to net the expenses you need a
+  // bigger corpus: corpus·targetWd·(1-tax) = expenses  →  /(1-tax).
+  const grossAtRet = annualExpAtRet / (1 - taxRate(plan));
+  return plan.targetWd > 0 ? grossAtRet / (plan.targetWd / 100) : Infinity;
 }
 
 // Monthly sinking-fund SIP to accumulate futureCost over yrs years at pre-ret return.
@@ -160,7 +171,9 @@ export function compute(plan) {
   const fireMult = realReturn > 0 ? 1 / realReturn : Infinity;
   const monthlyExp = totalExpenses(plan);
   const monthlyInv = totalInvest(plan);
-  const fireNumber = isFinite(fireMult) ? monthlyExp * 12 * fireMult : Infinity;
+  const tax = taxRate(plan);
+  // 25×-style FIRE number, grossed up so the post-tax draw still covers expenses.
+  const fireNumber = isFinite(fireMult) ? (monthlyExp * 12 * fireMult) / (1 - tax) : Infinity;
 
   const simGoals = simulate(plan, { includeGoals: true });
   const simNo    = simulate(plan, { includeGoals: false });
@@ -217,7 +230,8 @@ export function compute(plan) {
     const fr = futureRate(plan, age);
     const usd = plan.country?.code === 'US' ? nominal : nominal / fr; // USD-equivalent
     const retired = age >= plan.retireAge;
-    const realIncome = retired ? (nominal * (plan.targetWd / 100) / 12) / inflFactor(plan, age) : 0;
+    // income shown is the spendable (after-tax) draw at the target withdrawal rate
+    const realIncome = retired ? (nominal * (plan.targetWd / 100) * (1 - tax) / 12) / inflFactor(plan, age) : 0;
     const realSurplus = retired ? realIncome - monthlyExp : 0;
     return { age, phase: retired ? 'Retired' : 'Accumulating', nominal, real, fr, usd, retired,
       realIncome, realSurplus, goalHit: s.goalHit, assetValue: s.assetValue || 0, netWorth: s.netWorth || nominal };
@@ -232,7 +246,7 @@ export function compute(plan) {
     const fr = futureRate(plan, age);
     const usd = plan.country?.code === 'US' ? s.corpus : s.corpus / fr;
     const retired = age >= plan.retireAge;
-    const incomeMo = retired ? s.corpus * (plan.targetWd / 100) / 12 : 0;
+    const incomeMo = retired ? s.corpus * (plan.targetWd / 100) * (1 - tax) / 12 : 0; // after-tax spendable
     const expMo = (s.annualExp || monthlyExp * 12 * inflFactor(plan, age)) / 12; // includes loan EMI
     const surplus = retired ? incomeMo - expMo : monthlyInv;
     return { age, retired, nominal: s.corpus, real, usd, incomeMo, expMo, surplus, wd: s.wd,

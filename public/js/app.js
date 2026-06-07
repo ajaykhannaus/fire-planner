@@ -126,6 +126,7 @@ function applyCountry(code) {
     investedMin: p.investedMin, investedMax: p.investedMax, investedStep: p.investedStep,
   };
   plan.inflation = p.inflation; plan.fxRate = p.fxRate; plan.depr = p.depr;
+  plan.taxWd = p.taxWd ?? 0;
   for (const a of ASSETS) plan.alloc[a.id].ret = p.returns[a.id];
   plan.invested = Math.min(Math.max(plan.invested, p.investedMin), p.investedMax);
   buildInputs(); refresh();
@@ -148,6 +149,7 @@ function openCountryModal() {
     <div class="field"><label>Inflation %/yr</label><input id="cf_infl" type="number" step="0.1" value="${plan.inflation}"/></div>
     <div class="field"><label>FX: local per 1 USD</label><input id="cf_fx" type="number" step="0.01" value="${plan.fxRate}"/></div>
     <div class="field"><label>Currency depreciation %/yr</label><input id="cf_depr" type="number" step="0.1" value="${plan.depr}"/></div>
+    <div class="field"><label>Withdrawal tax %</label><input id="cf_tax" type="number" step="0.5" value="${plan.taxWd ?? 0}"/></div>
     <div class="field"><label>Return: Global stocks %</label><input id="cf_us" type="number" step="0.1" value="${plan.alloc.us.ret}"/></div>
     <div class="field"><label>Return: Local equity %</label><input id="cf_mf" type="number" step="0.1" value="${plan.alloc.mf.ret}"/></div>
     <div class="field"><label>Return: Retirement acct %</label><input id="cf_epf" type="number" step="0.1" value="${plan.alloc.epf.ret}"/></div>
@@ -165,6 +167,7 @@ $('cmApply').onclick = () => {
   plan.inflation = num('cf_infl', plan.inflation);
   plan.fxRate = num('cf_fx', plan.fxRate);
   plan.depr = num('cf_depr', plan.depr);
+  plan.taxWd = num('cf_tax', plan.taxWd);
   plan.alloc.us.ret = num('cf_us', plan.alloc.us.ret);
   plan.alloc.mf.ret = num('cf_mf', plan.alloc.mf.ret);
   plan.alloc.epf.ret = num('cf_epf', plan.alloc.epf.ret);
@@ -250,6 +253,8 @@ function buildCore() {
     fmt: v => v + '%', onInput: v => { plan.depr = v; refresh(); } });
   makeSlider(c, { label: 'Target withdrawal %', min: 1, max: 10, step: 0.5, value: plan.targetWd,
     fmt: v => v + '%', onInput: v => { plan.targetWd = v; refresh(); } });
+  makeSlider(c, { label: 'Withdrawal tax %', min: 0, max: 50, step: 0.5, value: plan.taxWd ?? 0,
+    fmt: v => v + '%', onInput: v => { plan.taxWd = v; refresh(); } });
 }
 
 function buildAlloc() {

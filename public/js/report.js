@@ -98,6 +98,7 @@ export function generateReport(plan, R, ctx = {}) {
       ['Monthly expenses', money(R.monthlyExp) + '/mo'],
       ['Inflation', fmtPct(plan.inflation / 100)],
       ['Target withdrawal rate', plan.targetWd + '%'],
+      ['Withdrawal tax', (plan.taxWd ?? 0) + '%'],
       ['Pre-retirement blended return', fmtPct(R.preR)],
       ['Post-retirement blended return', fmtPct(R.postBl)],
       ['Real (inflation-adjusted) return', fmtPct(R.realReturn)],
