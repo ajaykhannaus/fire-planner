@@ -7,11 +7,21 @@ export const END_AGE = 100;
 // The plan's current age (the simulation's starting age). Falls back to START_AGE.
 export const startAge = (plan) => plan.startAge ?? START_AGE;
 
+// Global / USD-denominated assets (US / Global Stocks) earn the local-currency
+// depreciation on top of their native return: when the home currency weakens vs
+// USD by `depr`%/yr, a foreign-currency holding gains that much extra in local terms.
+// Local-currency assets (MF, EPF, FD) are unaffected.
+const FX_ASSETS = new Set(['us']);
+export function effectiveReturn(plan, id) {
+  const base = plan.alloc[id]?.ret || 0;
+  return FX_ASSETS.has(id) ? base + (plan.depr || 0) : base;
+}
+
 export function blended(plan, phase) {
   let wsum = 0, num = 0;
   for (const a of ASSETS) {
     const w = plan.alloc[a.id][phase];
-    wsum += w; num += w * plan.alloc[a.id].ret;
+    wsum += w; num += w * effectiveReturn(plan, a.id);
   }
   return wsum > 0 ? (num / wsum) / 100 : 0;
 }

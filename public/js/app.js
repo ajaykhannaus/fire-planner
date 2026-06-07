@@ -426,6 +426,12 @@ function updateAlloc(R) {
   $('allocTotalRow').innerHTML = `<td>Total</td>
     <td class="${t.pre === 100 ? 'good' : 'bad'}">${t.pre}%</td>
     <td class="${t.post === 100 ? 'good' : 'bad'}">${t.post}%</td><td></td>`;
+
+  // Currency depreciation is added to the return of global (USD-denominated) assets.
+  const usEff = E.effectiveReturn(plan, 'us');
+  $('allocNote').innerHTML = plan.depr > 0
+    ? `<b>🌐 Currency effect:</b> a weakening ${plan.country.symbol.trim() || 'home'} currency adds your <b>${plan.depr}%/yr</b> depreciation to global stocks — so <b>US / Global Stocks</b> effectively returns <b>${plan.alloc.us.ret}% + ${plan.depr}% = ${usEff}%/yr</b> in local-currency terms. Local assets (MF, EPF, FD) are unaffected.`
+    : `<b>🌐 Currency effect:</b> set a currency depreciation above 0% (Core Inputs) and it is added to the return of <b>US / Global Stocks</b>, since a weakening home currency boosts foreign-currency holdings.`;
 }
 
 function updateExpenses(R) {
