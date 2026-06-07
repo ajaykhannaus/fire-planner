@@ -9,6 +9,7 @@ import { store } from './store.js';
 let plan = planFromPreset('IN');
 let currentPlanId = null;
 let currentPlanName = 'Untitled plan';
+let building = false;   // true while buildInputs() is (re)building structure; suppresses refresh()
 let chart = null, chartMode = 'corpus';
 const expanded = { expBreak: false, invBreak: false };
 
@@ -228,8 +229,13 @@ function makeSlider(container, opts) {
 // BUILD INPUTS (structural)
 // =========================================================
 function buildInputs() {
+  // Suppress refresh() while structural elements are being (re)built: a slider's
+  // initial-clamp onInput (makeSlider) can fire refresh() before later sections
+  // like #allocTotalRow exist, which would throw and abort the whole render.
+  building = true;
   $('separateGoals').checked = !!plan.separateGoals;
   buildCore(); buildAlloc(); buildExpenseBreak(); buildInvestBreak(); buildChildren(); buildGoals();
+  building = false;
 }
 
 function buildCore() {
@@ -393,6 +399,7 @@ $('chartTabs').addEventListener('click', (e) => {
 // REFRESH (compute + render outputs)
 // =========================================================
 function refresh() {
+  if (building) return;   // structural rebuild in progress — outputs render once it finishes
   const R = E.compute(plan); window._R = R;
   renderDerived(R); updateAlloc(R); updateExpenses(R); updateInvest(R);
   renderGoalSummary(R); renderFire(R); renderFunding(R); renderStrategies(R);
