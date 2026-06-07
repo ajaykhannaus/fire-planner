@@ -471,6 +471,12 @@ function renderFire(R) {
   ];
   $('fireCards').innerHTML = cards.map(c =>
     `<div class="fire-card"><div class="lbl">${c.lbl}</div><div class="big ${c.cls}">${c.big}</div>${c.sub ? `<div class="small muted">${c.sub}</div>` : ''}</div>`).join('');
+
+  const goalsMode = plan.separateGoals
+    ? `Children &amp; goals are <b>ring-fenced</b> — funded by their own dedicated SIPs (see <b>Goal Funding</b>) and <b>not</b> drawn from this corpus.`
+    : `Children &amp; goals are <b>paid out of this corpus</b> — each is deducted at its target age, so they pull “Corpus at retirement” and longevity down. A financed goal also adds an EMI that carries into retirement.`;
+  $('fireNote').innerHTML =
+    `<b>What “retirement amount” covers:</b> the <b>FIRE number</b> (${isFinite(R.fireNumber) ? money(R.fireNumber) : '—'}) and <b>target corpus</b> (${money(R.required)}) size your pot for <b>living expenses only</b> — ${money(R.monthlyExp)}/mo today, grossed up for ${plan.taxWd ?? 0}% withdrawal tax. They do <b>not</b> bake in children or goals. ${goalsMode}`;
 }
 
 function renderFunding(R) {
