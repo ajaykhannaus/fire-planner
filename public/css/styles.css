@@ -56,7 +56,9 @@ input,select{font-family:inherit}
 .plan-item{display:flex;justify-content:space-between;align-items:center;padding:9px 11px;border:1px solid var(--border);border-radius:9px;cursor:pointer;font-size:13px}
 .plan-item:hover{background:var(--surface-2)}
 .plan-item.active{border-color:var(--accent);background:rgba(17,155,144,.07)}
-.plan-item .pdel{opacity:.4;border:none;background:none;cursor:pointer;font-size:14px}
+.plan-item>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.plan-item .pdup,.plan-item .pdel{opacity:.4;border:none;background:none;cursor:pointer;font-size:14px;padding:0 2px}
+.plan-item .pdup:hover{opacity:1;color:var(--accent)}
 .plan-item .pdel:hover{opacity:1;color:var(--danger)}
 .plan-empty{font-size:12px;color:var(--text-3);padding:6px 2px}
 .select{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--surface);font-size:13px;margin-bottom:8px}

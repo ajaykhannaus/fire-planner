@@ -10,6 +10,8 @@ let plan = planFromPreset('IN');
 let currentPlanId = null;
 let currentPlanName = 'Untitled plan';
 let building = false;   // true while buildInputs() is (re)building structure; suppresses refresh()
+let dirty = false;      // true when the current plan has unsaved edits since last load/save
+let loadingPlan = false;// true while programmatically loading a plan; suppresses dirty-marking
 let chart = null, chartMode = 'corpus';
 let compareChart = null;        // overlaid corpus chart for the Compare Scenarios card
 let compareSel = [];            // selected ids: 'current' or a saved plan id
@@ -35,8 +37,11 @@ function loadPlanList() {
   for (const p of plans) {
     const item = document.createElement('div');
     item.className = 'plan-item' + (p.id === currentPlanId ? ' active' : '');
-    item.innerHTML = `<span>${escapeHtml(p.name)}</span><button class="pdel" title="Delete">✕</button>`;
+    item.innerHTML = `<span>${escapeHtml(p.name)}</span>` +
+      `<button class="pdup" title="Duplicate">⧉</button>` +
+      `<button class="pdel" title="Delete">✕</button>`;
     item.querySelector('span').onclick = () => openPlan(p.id);
+    item.querySelector('.pdup').onclick = (e) => { e.stopPropagation(); duplicatePlan(p.id); };
     item.querySelector('.pdel').onclick = (e) => {
       e.stopPropagation();
       if (!confirm(`Delete plan "${p.name}"?`)) return;
@@ -49,12 +54,45 @@ function loadPlanList() {
 }
 
 function openPlan(id) {
-  const p = store.get(id);
-  if (!p) { toast('Plan not found'); loadPlanList(); return; }
-  plan = migrate(p.data);
-  currentPlanId = p.id; currentPlanName = p.name;
-  buildInputs(); refresh(); populateCountrySelect();
+  maybeWarnUnsaved(() => {
+    const p = store.get(id);
+    if (!p) { toast('Plan not found'); loadPlanList(); return; }
+    loadingPlan = true;
+    plan = migrate(p.data);
+    currentPlanId = p.id; currentPlanName = p.name;
+    buildInputs(); refresh(); populateCountrySelect();
+    loadingPlan = false; dirty = false;
+    loadPlanList(); syncTopbar();
+  });
+}
+
+// A unique default name like "Untitled plan", "Untitled plan 2", … so every new plan
+// is immediately persistable and distinguishable in the list.
+function uniqueName(base) {
+  const names = new Set(store.list().map(p => p.name));
+  if (!names.has(base)) return base;
+  let n = 2;
+  while (names.has(`${base} ${n}`)) n++;
+  return `${base} ${n}`;
+}
+
+// Persist the current in-memory plan (create or update), keeping currentPlanId in sync.
+function saveCurrent(name) {
+  const nm = name || currentPlanName;
+  if (currentPlanId && store.get(currentPlanId)) store.update(currentPlanId, nm, plan);
+  else currentPlanId = store.create(nm, plan);
+  currentPlanName = nm; dirty = false;
   loadPlanList(); syncTopbar();
+}
+
+// Guard a plan switch against silently losing unsaved edits. Discard-or-stay:
+// OK discards and continues; Cancel stays so the user can Save first, then switch.
+function maybeWarnUnsaved(proceed) {
+  if (!dirty) { proceed(); return; }
+  if (confirm(`"${currentPlanName}" has unsaved changes that will be lost.\n\nOK = discard and continue\nCancel = stay (then click 💾 Save first)`)) {
+    dirty = false;
+    proceed();
+  }
 }
 
 // guard against older payloads missing fields
@@ -78,11 +116,32 @@ function migrate(data) {
 }
 
 $('btnNewPlan').onclick = () => {
-  plan = planFromPreset(plan.country.code in PRESETS ? plan.country.code : 'IN');
-  currentPlanId = null; currentPlanName = 'Untitled plan';
-  buildInputs(); refresh(); populateCountrySelect(); syncTopbar();
-  toast('Started a new plan');
+  maybeWarnUnsaved(() => {
+    const code = plan.country.code in PRESETS ? plan.country.code : 'IN';
+    loadingPlan = true;
+    plan = planFromPreset(code);
+    currentPlanName = uniqueName('Untitled plan');
+    currentPlanId = null;
+    try { currentPlanId = store.create(currentPlanName, plan); }  // persist immediately
+    catch (err) { toast(err.message); }
+    buildInputs(); refresh(); populateCountrySelect();
+    loadingPlan = false; dirty = false;
+    loadPlanList(); syncTopbar();
+    toast(`Created "${currentPlanName}"`);
+  });
 };
+
+// Fork a saved plan as a starting point for a variation.
+function duplicatePlan(id) {
+  const p = store.get(id);
+  if (!p) { toast('Plan not found'); return; }
+  const name = uniqueName(`${p.name} (copy)`);
+  let newId = null;
+  try { newId = store.create(name, p.data); } catch (err) { return toast(err.message); }
+  loadPlanList();
+  toast(`Duplicated as "${name}"`);
+  openPlan(newId);   // switch into the copy so the user can edit it right away
+}
 
 $('btnSave').onclick = () => {
   $('saveName').value = currentPlanName === 'Untitled plan' ? '' : currentPlanName;
@@ -92,15 +151,13 @@ $('smCancel').onclick = () => $('saveModal').style.display = 'none';
 $('smSave').onclick = () => {
   const name = $('saveName').value.trim() || 'My FIRE plan';
   try {
-    if (currentPlanId && store.get(currentPlanId)) { store.update(currentPlanId, name, plan); }
-    else { currentPlanId = store.create(name, plan); }
-    currentPlanName = name;
+    saveCurrent(name);
     $('saveModal').style.display = 'none';
-    loadPlanList(); syncTopbar(); toast('Plan saved in this browser');
+    toast('Plan saved in this browser');
   } catch (err) { toast(err.message); }
 };
 
-function syncTopbar() { $('currentPlanName').textContent = currentPlanName; }
+function syncTopbar() { $('currentPlanName').textContent = currentPlanName + (dirty ? ' •' : ''); }
 
 // =========================================================
 // COUNTRY
@@ -412,6 +469,7 @@ $('chartTabs').addEventListener('click', (e) => {
 // =========================================================
 function refresh() {
   if (building) return;   // structural rebuild in progress — outputs render once it finishes
+  if (!loadingPlan && !dirty) { dirty = true; syncTopbar(); }   // user edit → unsaved
   const R = E.compute(plan); window._R = R;
   renderDerived(R); updateAlloc(R); updateExpenses(R); updateInvest(R);
   renderGoalSummary(R); renderFire(R); renderFunding(R); renderStrategies(R);
@@ -738,10 +796,18 @@ function escapeAttr(s) { return escapeHtml(s); }
 // BOOT — no login, straight into the planner
 // =========================================================
 (function boot() {
+  loadingPlan = true;
   const plans = store.list();
-  if (plans.length) { openPlan(plans[0].id); }
-  else { plan = planFromPreset('IN'); currentPlanId = null; currentPlanName = 'Untitled plan'; buildInputs(); refresh(); }
-  populateCountrySelect();
+  if (plans.length) {
+    const p = store.get(plans[0].id);
+    plan = migrate(p.data); currentPlanId = p.id; currentPlanName = p.name;
+  } else {
+    // First run: seed a persisted starter plan so the list is never empty.
+    plan = planFromPreset('IN'); currentPlanName = 'My FIRE plan';
+    try { currentPlanId = store.create(currentPlanName, plan); } catch { currentPlanId = null; }
+  }
+  buildInputs(); refresh(); populateCountrySelect();
+  loadingPlan = false; dirty = false;
   syncTopbar();
   loadPlanList();
   renderCompare();
