@@ -312,14 +312,16 @@ export function compute(plan) {
     const s = simGoals.find(x => x.age === age) || simGoals[simGoals.length - 1];
     const nominal = s.corpus;
     const real = nominal / inflFactor(plan, age);
+    const netWorth = s.netWorth || nominal;
+    const realNet = netWorth / inflFactor(plan, age);   // corpus + property, in today's money
     const fr = futureRate(plan, age);
     const usd = plan.country?.code === 'US' ? nominal : nominal / fr; // USD-equivalent
     const retired = age >= plan.retireAge;
     // income shown is the spendable (after-tax) draw at the target withdrawal rate
     const realIncome = retired ? (nominal * (plan.targetWd / 100) * (1 - tax) / 12) / inflFactor(plan, age) : 0;
     const realSurplus = retired ? realIncome - monthlyExp : 0;
-    return { age, phase: retired ? 'Retired' : 'Accumulating', nominal, real, fr, usd, retired,
-      realIncome, realSurplus, goalHit: s.goalHit, assetValue: s.assetValue || 0, netWorth: s.netWorth || nominal };
+    return { age, phase: retired ? 'Retired' : 'Accumulating', nominal, real, realNet, fr, usd, retired,
+      realIncome, realSurplus, goalHit: s.goalHit, assetValue: s.assetValue || 0, netWorth };
   });
 
   // ---- summary rows ---- (only ages at/after the current age)
@@ -333,9 +335,10 @@ export function compute(plan) {
     const retired = age >= plan.retireAge;
     const incomeMo = retired ? s.corpus * (plan.targetWd / 100) * (1 - tax) / 12 : 0; // after-tax spendable
     const expMo = (s.annualExp || monthlyExp * 12 * inflFactor(plan, age)) / 12; // includes loan EMI
+    const emiMo = (s.emi || 0) / 12;   // loan EMI baked into expMo, shown separately for clarity
     // during accumulation the monthly surplus is the SIP — but only while it's still running
     const surplus = retired ? incomeMo - expMo : (isContributing(plan, age) ? monthlyInv : 0);
-    return { age, retired, nominal: s.corpus, real, usd, incomeMo, expMo, surplus, wd: s.wd,
+    return { age, retired, nominal: s.corpus, real, usd, incomeMo, expMo, emiMo, surplus, wd: s.wd,
       goalHit: s.goalHit, assetValue: s.assetValue || 0, netWorth: s.netWorth || s.corpus };
   });
 

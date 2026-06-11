@@ -787,7 +787,7 @@ function renderAgeCards(R) {
     const realPct = s.nominal > 0 ? Math.max(0, Math.min(100, s.real / s.nominal * 100)) : 0;
     const incomeRow = s.retired ? `<div class="row"><span>Real income/mo</span><b>${money(s.realIncome)}</b></div><div class="row"><span>Real surplus/mo</span><b class="${s.realSurplus >= 0 ? 'good' : 'bad'}">${money(s.realSurplus)}</b></div>` : '';
     const goalRow = s.goalHit > 0 ? `<div class="row"><span>Goals deducted</span><b class="bad">${money(s.goalHit)}</b></div>` : '';
-    const assetRow = s.assetValue > 0 ? `<div class="row"><span>Assets (property)</span><b class="good">${money(s.assetValue)}</b></div><div class="row"><span>Net worth</span><b>${money(s.netWorth)}</b></div>` : '';
+    const assetRow = s.assetValue > 0 ? `<div class="row"><span>Assets (property)</span><b class="good">${money(s.assetValue)}</b></div><div class="row"><span>Net worth</span><b>${money(s.netWorth)}</b></div><div class="row"><span>Real NW incl. assets (today)</span><b>${money(s.realNet)}</b></div>` : '';
     return `<div class="age-card" style="border-left-color:${colors[i]}">
       <div class="atop"><b>Age ${s.age}</b><span class="phase">${s.phase}</span></div>
       <div class="nw">${money(s.nominal)}</div>
@@ -804,7 +804,7 @@ function renderSummary(R) {
   $('summaryBody').innerHTML = R.summary.map(s => `<tr>
     <td>${s.age}${s.retired ? ' 🏖️' : ''}</td>
     <td>${money(s.nominal)}</td><td>${money(s.real)}</td><td>$${Math.round(s.usd).toLocaleString('en-US')}</td>
-    <td>${s.retired ? money(s.incomeMo) : '—'}</td><td>${money(s.expMo)}</td>
+    <td>${s.retired ? money(s.incomeMo) : '—'}</td><td>${money(s.expMo)}${s.emiMo > 0 ? `<span class="emi-note">incl. ${money(s.emiMo)} EMI</span>` : ''}</td>
     <td class="${s.surplus >= 0 ? 'good' : 'bad'}">${money(s.surplus)}</td>
     <td>${s.wd == null ? '—' : s.wd.toFixed(1) + '%'}</td>
     <td>${s.goalHit > 0 ? money(s.goalHit) : ''}</td></tr>`).join('');
