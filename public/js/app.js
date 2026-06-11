@@ -503,8 +503,8 @@ function buildInvestBreak() {
   if (box) {
     const horizon = Math.max(1, plan.retireAge - plan.startAge);
     const sipNow = (plan.sipYears > 0 && plan.sipYears < horizon) ? plan.sipYears : horizon;
-    makeSlider(box, { label: 'Invest for (years)', min: 1, max: horizon, step: 1, value: sipNow,
-      fmt: v => v >= horizon ? `${horizon} yrs · to retirement` : `${v} of ${horizon} yrs`,
+    makeSlider(box, { label: 'Contribute SIP for (years)', min: 1, max: horizon, step: 1, value: sipNow,
+      fmt: v => v >= horizon ? `${horizon} yrs · until retirement` : `${v} yrs SIP · then stays invested`,
       onInput: v => { plan.sipYears = (v >= horizon ? 0 : v); refresh(); } });
   }
 }
@@ -804,7 +804,8 @@ function renderSummary(R) {
   $('summaryBody').innerHTML = R.summary.map(s => `<tr>
     <td>${s.age}${s.retired ? ' 🏖️' : ''}</td>
     <td>${money(s.nominal)}</td><td>${money(s.real)}</td><td>$${Math.round(s.usd).toLocaleString('en-US')}</td>
-    <td>${s.retired ? money(s.incomeMo) : '—'}</td><td>${money(s.expMo)}${s.emiMo > 0 ? `<span class="emi-note">incl. ${money(s.emiMo)} EMI</span>` : ''}</td>
+    <td>${s.retired ? money(s.incomeMo) : '—'}</td><td>${money(s.expMo)}</td>
+    <td>${s.emiMo > 0 ? money(s.emiMo) : '—'}</td>
     <td class="${s.surplus >= 0 ? 'good' : 'bad'}">${money(s.surplus)}</td>
     <td>${s.wd == null ? '—' : s.wd.toFixed(1) + '%'}</td>
     <td>${s.goalHit > 0 ? money(s.goalHit) : ''}</td></tr>`).join('');

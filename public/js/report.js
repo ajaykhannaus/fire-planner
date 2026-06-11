@@ -114,10 +114,10 @@ export function generateReport(plan, R, ctx = {}) {
       ['Target retirement age', String(plan.retireAge)],
       ['Currently invested', money(plan.invested)],
       ['Monthly investments', money(R.monthlyInv) + '/mo'],
-      ['Invest for', (() => {
+      ['SIP contributions for', (() => {
         const horizon = plan.retireAge - startAge(plan);
         const sy = sipYears(plan);
-        return sy >= horizon ? `${horizon} yrs (until retirement)` : `${sy} of ${horizon} yrs (SIP then stops)`;
+        return sy >= horizon ? `${horizon} yrs (until retirement)` : `${sy} yrs (then stays invested until retirement)`;
       })()],
       ['Monthly expenses', money(R.monthlyExp) + '/mo'],
       ['Inflation', fmtPct(plan.inflation / 100)],
@@ -267,13 +267,14 @@ export function generateReport(plan, R, ctx = {}) {
   // ====================================================================
   heading('Summary Table');
   table(
-    ['Age', 'Nominal', 'Real (today)', 'USD equiv', 'Income/mo', 'Expenses/mo', 'Surplus/mo', 'WD%'],
+    ['Age', 'Nominal', 'Real (today)', 'USD equiv', 'Income/mo', 'Expenses/mo', 'EMI/mo', 'Surplus/mo', 'WD%'],
     R.summary.map(s => [
       String(s.age) + (s.retired ? ' (R)' : ''),
       money(s.nominal), money(s.real),
       '$' + Math.round(s.usd).toLocaleString('en-US'),
       s.retired ? money(s.incomeMo) : '—',
       money(s.expMo),
+      s.emiMo > 0 ? money(s.emiMo) : '—',
       money(s.surplus),
       s.wd == null ? '—' : s.wd.toFixed(1) + '%',
     ]),
@@ -281,10 +282,10 @@ export function generateReport(plan, R, ctx = {}) {
       columnStyles: {
         0: { halign: 'center', cellWidth: 42 },
         1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' },
-        4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' }, 7: { halign: 'right' },
+        4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' }, 7: { halign: 'right' }, 8: { halign: 'right' },
       },
       didParseCell: (d) => {
-        if (d.section === 'body' && d.column.index === 6) {
+        if (d.section === 'body' && d.column.index === 7) {
           const neg = String(d.cell.raw).trim().startsWith('-');
           d.cell.styles.textColor = neg ? [214, 69, 69] : GOOD;
         }
