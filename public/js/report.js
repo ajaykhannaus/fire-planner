@@ -1,7 +1,8 @@
 // PDF report generator. Uses jsPDF (window.jspdf.jsPDF) + jspdf-autotable (CDN).
 // Produces a multi-section downloadable PDF summarizing the whole plan.
-import { startAge, effectiveTaxRate, bucketReturn, FUND_ASSETS } from './engine.js?v=DEV';
+import { startAge, effectiveTaxRate, bucketReturn, FUND_ASSETS, sipYears } from './engine.js?v=DEV';
 import { buildStrategies } from './strategies.js?v=DEV';
+import { fundLabel } from './presets.js?v=DEV';
 import { fmtPct } from './format.js?v=DEV';
 
 const ACCENT = [17, 155, 144];   // #119b90
@@ -9,6 +10,21 @@ const DARK   = [30, 41, 59];     // slate
 const MUTED  = [100, 116, 139];
 const GOOD   = [15, 110, 86];
 const WARN   = [186, 117, 23];
+
+// jsPDF's built-in Helvetica uses CP1252 — it renders —, £, € fine but NOT the
+// rupee sign ₹ (U+20B9) or emoji (flags). An unencodable glyph also corrupts the
+// width math, which is what caused the wide letter-spacing + text overflow in the
+// PDF. Map ₹ to "Rs" and strip emoji so every string measures and renders cleanly.
+function pdfSafe(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/₹/g, 'Rs ')                       // ₹ → Rs (not in CP1252)
+    .replace(/≈/g, '~').replace(/≥/g, '>=').replace(/≤/g, '<=')  // math signs absent from CP1252
+    // strip emoji / pictographs / flags / ZWJ + variation selectors
+    .replace(/[\u{1F000}-\u{1FAFF}\u{1F1E6}-\u{1F1FF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{FE00}-\u{FE0F}\u{200D}]/gu, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
 
 export function generateReport(plan, R, ctx = {}) {
   const JsPDF = window.jspdf && window.jspdf.jsPDF;
@@ -30,7 +46,7 @@ export function generateReport(plan, R, ctx = {}) {
   function heading(text) {
     ensure(40);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
-    setColor(ACCENT); doc.text(text, M, y);
+    setColor(ACCENT); doc.text(pdfSafe(text), M, y);
     y += 6;
     doc.setDrawColor(ACCENT[0], ACCENT[1], ACCENT[2]); doc.setLineWidth(1.2);
     doc.line(M, y, PW - M, y);
@@ -41,15 +57,17 @@ export function generateReport(plan, R, ctx = {}) {
     doc.setFont('helvetica', opts.bold ? 'bold' : 'normal');
     doc.setFontSize(opts.size || 9.5);
     setColor(opts.color || DARK);
-    const lines = doc.splitTextToSize(text, PW - 2 * M);
+    const lines = doc.splitTextToSize(pdfSafe(text), PW - 2 * M);
     ensure(lines.length * 12 + 4);
     doc.text(lines, M, y);
     y += lines.length * 12 + (opts.gap != null ? opts.gap : 6);
   }
 
   function table(head, body, opts = {}) {
+    const safeHead = head.map(pdfSafe);
+    const safeBody = body.map(row => row.map(pdfSafe));
     doc.autoTable({
-      head: [head], body,
+      head: [safeHead], body: safeBody,
       startY: y,
       margin: { left: M, right: M },
       styles: { font: 'helvetica', fontSize: 8.5, cellPadding: 4, textColor: DARK, lineColor: [226, 232, 240], lineWidth: 0.5 },
@@ -71,17 +89,18 @@ export function generateReport(plan, R, ctx = {}) {
   y = 92;
 
   doc.setFont('helvetica', 'bold'); doc.setFontSize(15); setColor(DARK);
-  doc.text(planName, M, y); y += 18;
+  doc.text(pdfSafe(planName), M, y); y += 18;
 
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); setColor(MUTED);
   const cc = plan.country || {};
   const meta = [
     user.name ? `Prepared for: ${user.name}` : null,
     user.email ? user.email : null,
-    `Country: ${cc.flag ? cc.flag + ' ' : ''}${cc.name || cc.code || '—'} (${cc.symbol || ''})`,
+    // flag emoji is stripped by pdfSafe; ₹ → Rs
+    `Country: ${cc.name || cc.code || '—'} (${pdfSafe(cc.symbol || '')})`,
     `Generated: ${new Date().toLocaleDateString()}`,
   ].filter(Boolean);
-  meta.forEach(line => { doc.text(line, M, y); y += 13; });
+  meta.forEach(line => { doc.text(pdfSafe(line), M, y); y += 13; });
   y += 8;
 
   // ====================================================================
@@ -95,6 +114,11 @@ export function generateReport(plan, R, ctx = {}) {
       ['Target retirement age', String(plan.retireAge)],
       ['Currently invested', money(plan.invested)],
       ['Monthly investments', money(R.monthlyInv) + '/mo'],
+      ['Invest for', (() => {
+        const horizon = plan.retireAge - startAge(plan);
+        const sy = sipYears(plan);
+        return sy >= horizon ? `${horizon} yrs (until retirement)` : `${sy} of ${horizon} yrs (SIP then stops)`;
+      })()],
       ['Monthly expenses', money(R.monthlyExp) + '/mo'],
       ['Inflation', fmtPct(plan.inflation / 100)],
       ['Target withdrawal rate', plan.targetWd + '%'],
@@ -176,10 +200,11 @@ export function generateReport(plan, R, ctx = {}) {
   // ASSET ALLOCATION
   // ====================================================================
   heading('Asset Allocation');
+  const ccode = plan.country.code;
   table(
     ['Asset', 'Pre-ret %', 'Post-ret %', 'Return %', 'Tax %'],
     Object.entries(plan.alloc).map(([id, a]) => {
-      const labels = { us: 'US / Global Stocks', mf: 'Equity Mutual Fund', mfd: 'Debt Mutual Fund', mfx: 'Hybrid / Index Fund', epf: 'EPF / 401K', fd: 'FD / Bonds' };
+      const labels = { us: 'US / Global Stocks', mf: fundLabel(ccode, 'mf'), mfd: fundLabel(ccode, 'mfd'), mfx: fundLabel(ccode, 'mfx'), epf: 'EPF / 401K', fd: 'FD / Bonds' };
       const funds = Array.isArray(a.funds) ? a.funds : [];
       const hasFunds = FUND_ASSETS.has(id) && funds.length > 0;
       const retCell = hasFunds ? bucketReturn(plan, id).toFixed(1) + '% (blended)' : a.ret + '%';
@@ -192,7 +217,7 @@ export function generateReport(plan, R, ctx = {}) {
   const fundRows = [];
   for (const [id, a] of Object.entries(plan.alloc)) {
     if (!FUND_ASSETS.has(id) || !Array.isArray(a.funds) || !a.funds.length) continue;
-    const labels = { mf: 'Equity Mutual Fund', mfd: 'Debt Mutual Fund', mfx: 'Hybrid / Index Fund' };
+    const labels = { mf: fundLabel(ccode, 'mf'), mfd: fundLabel(ccode, 'mfd'), mfx: fundLabel(ccode, 'mfx') };
     const wTotal = a.funds.reduce((s, f) => s + (+f.weight || 0), 0) || 1;
     for (const f of a.funds) {
       fundRows.push([labels[id] || id, f.name || '(unnamed)', Math.round((+f.weight || 0) / wTotal * 100) + '%', (+f.ret || 0) + '%']);

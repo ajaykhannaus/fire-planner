@@ -7,6 +7,18 @@ export const END_AGE = 100;
 // The plan's current age (the simulation's starting age). Falls back to START_AGE.
 export const startAge = (plan) => plan.startAge ?? START_AGE;
 
+// How many years (from the current age) the monthly SIP keeps running before it
+// stops. Some people invest for, say, 10 years but retire at 15 — contributions
+// halt while the corpus keeps compounding. 0 / blank = contribute for the whole
+// accumulation phase (until retirement). Always capped at the accumulation horizon.
+export function sipYears(plan) {
+  const horizon = Math.max(0, plan.retireAge - startAge(plan));
+  const n = +plan.sipYears || 0;
+  return n > 0 ? Math.min(n, horizon) : horizon;
+}
+// True while contributions are still being made at the given age.
+export const isContributing = (plan, age) => (age - startAge(plan)) < sipYears(plan);
+
 // Global / USD-denominated assets (US / Global Stocks) earn the local-currency
 // depreciation on top of their native return: when the home currency weakens vs
 // USD by `depr`%/yr, a foreign-currency holding gains that much extra in local terms.
@@ -124,6 +136,8 @@ export function simulate(plan, opts = {}) {
   const annualSavings = (opts.savingsOverride != null ? opts.savingsOverride : totalInvest(plan)) * 12;
   const step = (plan.stepUp || 0) / 100;     // annual SIP step-up
   let yearSavings = annualSavings;           // grows by (1+step) after each pre-ret year
+  const sy = sipYears(plan);                 // contributions stop after this many years
+  const sa = startAge(plan);
   const tax = taxRate(plan);
   const useGoals = opts.includeGoals && deductsGoals(plan);
 
@@ -148,7 +162,11 @@ export function simulate(plan, opts = {}) {
     let wd = null;
     if (age >= plan.retireAge) wd = corpus > 0 ? (grossExp / corpus) * 100 : 100;
     out.push({ age, corpus, goalHit, wd, annualExp, grossExp, tax: taxPaid, emi: emiYear, assetValue, netWorth: corpus + assetValue });
-    if (age < plan.retireAge) { corpus = corpus * (1 + preR) + yearSavings; yearSavings *= (1 + step); }
+    if (age < plan.retireAge) {
+      const contributing = (age - sa) < sy;          // SIP halts after sipYears, corpus keeps compounding
+      corpus = corpus * (1 + preR) + (contributing ? yearSavings : 0);
+      yearSavings *= (1 + step);
+    }
     else corpus = corpus * (1 + postBl) - grossExp;
     if (corpus < 0) corpus = 0;
   }
@@ -173,12 +191,14 @@ export function corpusAtRetFor(plan, annualSavings) {
     }
   }
   const step = (plan.stepUp || 0) / 100;
+  const sy = sipYears(plan);
+  const sa = startAge(plan);
   let yearSavings = annualSavings;
   let corpus = plan.invested;
-  for (let age = startAge(plan); age < plan.retireAge; age++) {
+  for (let age = sa; age < plan.retireAge; age++) {
     if (goalByAge[age]) corpus -= goalByAge[age];
     if (corpus < 0) corpus = 0;
-    corpus = corpus * (1 + preR) + yearSavings;
+    corpus = corpus * (1 + preR) + ((age - sa) < sy ? yearSavings : 0);
     yearSavings *= (1 + step);
   }
   if (goalByAge[plan.retireAge]) corpus -= goalByAge[plan.retireAge];
@@ -288,7 +308,8 @@ export function compute(plan) {
     const retired = age >= plan.retireAge;
     const incomeMo = retired ? s.corpus * (plan.targetWd / 100) * (1 - tax) / 12 : 0; // after-tax spendable
     const expMo = (s.annualExp || monthlyExp * 12 * inflFactor(plan, age)) / 12; // includes loan EMI
-    const surplus = retired ? incomeMo - expMo : monthlyInv;
+    // during accumulation the monthly surplus is the SIP — but only while it's still running
+    const surplus = retired ? incomeMo - expMo : (isContributing(plan, age) ? monthlyInv : 0);
     return { age, retired, nominal: s.corpus, real, usd, incomeMo, expMo, surplus, wd: s.wd,
       goalHit: s.goalHit, assetValue: s.assetValue || 0, netWorth: s.netWorth || s.corpus };
   });

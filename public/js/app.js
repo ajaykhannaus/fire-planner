@@ -1,4 +1,4 @@
-import { PRESETS, PRESET_ORDER, planFromPreset, ASSETS, EXP_CATS, INV_CATS, GOALS } from './presets.js?v=DEV';
+import { PRESETS, PRESET_ORDER, planFromPreset, ASSETS, EXP_CATS, INV_CATS, GOALS, fundLabel } from './presets.js?v=DEV';
 import * as E from './engine.js?v=DEV';
 import { fmtMoney, fmtRaw, fmtPct } from './format.js?v=DEV';
 import { buildStrategies } from './strategies.js?v=DEV';
@@ -19,6 +19,8 @@ let compareSel = [];            // selected ids: 'current' or a saved plan id
 const expanded = { expBreak: false, invBreak: false };
 
 const $ = (id) => document.getElementById(id);
+// Country-aware asset label (fund buckets read 'Mutual Fund' in India, 'Fund / ETF' in the US, etc.)
+const aLabel = (a) => fundLabel(plan.country.code, a.id);
 const money = (v) => fmtMoney(v, plan.country.symbol, plan.country.numberStyle);
 const raw = (v) => fmtRaw(v, plan.country.symbol);
 
@@ -330,6 +332,13 @@ function buildCore() {
     fmt: v => v + '%', onInput: v => { plan.taxWd = v; refresh(); } });
   makeSlider(c, { label: 'SIP step-up %/yr', min: 0, max: 15, step: 0.5, value: plan.stepUp ?? 0,
     fmt: v => v + '%', onInput: v => { plan.stepUp = v; refresh(); } });
+  // How long the monthly SIP runs. Default (0) = invest all the way to retirement.
+  // Capping it models "invest for 10 years, retire at 15" — corpus keeps compounding.
+  const horizon = Math.max(1, plan.retireAge - plan.startAge);
+  const sipNow = (plan.sipYears > 0 && plan.sipYears < horizon) ? plan.sipYears : horizon;
+  makeSlider(c, { label: 'Invest for (years)', min: 1, max: horizon, step: 1, value: sipNow,
+    fmt: v => v >= horizon ? `${horizon} yrs · to retirement` : `${v} of ${horizon} yrs`,
+    onInput: v => { plan.sipYears = (v >= horizon ? 0 : v); refresh(); } });
 }
 
 function buildAlloc() {
@@ -337,7 +346,7 @@ function buildAlloc() {
   for (const a of ASSETS) {
     const tr = document.createElement('tr');
     const td0 = document.createElement('td');
-    td0.innerHTML = `<span style="color:${a.color}">●</span> ${a.label}`;
+    td0.innerHTML = `<span style="color:${a.color}">●</span> ${aLabel(a)}`;
     tr.appendChild(td0);
     const hasFunds = E.FUND_ASSETS.has(a.id) && (plan.alloc[a.id].funds || []).length > 0;
     for (const key of ['pre', 'post', 'ret', 'tax']) {
@@ -396,7 +405,7 @@ function buildFunds() {
     const card = document.createElement('div'); card.className = 'fund-bucket';
 
     const head = document.createElement('div'); head.className = 'fund-head';
-    head.innerHTML = `<span class="fund-bucket-name"><span style="color:${a.color}">●</span> ${a.label}</span>`;
+    head.innerHTML = `<span class="fund-bucket-name"><span style="color:${a.color}">●</span> ${aLabel(a)}</span>`;
     const eff = document.createElement('span'); eff.className = 'fund-eff'; eff.id = 'fundEff_' + a.id;
     eff.textContent = al.funds.length ? `Effective return ${E.bucketReturn(plan, a.id).toFixed(1)}%` : `Bucket return ${(al.ret || 0)}% (no named funds)`;
     head.appendChild(eff);
@@ -629,7 +638,7 @@ function updateAlloc(R) {
   // Currency depreciation is added to the return of global (USD-denominated) assets.
   const usEff = E.effectiveReturn(plan, 'us');
   $('allocNote').innerHTML = (plan.depr > 0
-    ? `<b>🌐 Currency effect:</b> a weakening ${plan.country.symbol.trim() || 'home'} currency adds your <b>${plan.depr}%/yr</b> depreciation to global stocks — so <b>US / Global Stocks</b> effectively returns <b>${plan.alloc.us.ret}% + ${plan.depr}% = ${usEff}%/yr</b> in local-currency terms. Local assets (Equity/Debt/Hybrid MF, EPF, FD) are unaffected.`
+    ? `<b>🌐 Currency effect:</b> a weakening ${plan.country.symbol.trim() || 'home'} currency adds your <b>${plan.depr}%/yr</b> depreciation to global stocks — so <b>US / Global Stocks</b> effectively returns <b>${plan.alloc.us.ret}% + ${plan.depr}% = ${usEff}%/yr</b> in local-currency terms. Local assets (your fund buckets, retirement, bonds) are unaffected.`
     : `<b>🌐 Currency effect:</b> set a currency depreciation above 0% (Core Inputs) and it is added to the return of <b>US / Global Stocks</b>, since a weakening home currency boosts foreign-currency holdings.`)
     + `<br><b>🧾 Withdrawal tax:</b> the per-asset Tax % is blended by your <b>post-retirement</b> allocation into a single effective rate of <b>${fmtPct(effTax)}</b> applied to retirement draws. (A single-corpus model can't track per-asset depletion order, so this weighted rate is the honest approximation.)`;
 }

@@ -15,6 +15,31 @@ export const ASSETS = [
   { id: 'fd',  label: 'Bonds / FD / Cash',  short: 'Bonds',  color: '#BA7517' },
 ];
 
+// Country-specific terminology for the three fund buckets (mf / mfd / mfx).
+// "Mutual fund" is India-centric; other regions say Fund / ETF / Tracker / OEIC etc.
+// Any country not listed (and custom countries) falls back to the global ASSETS label.
+export const FUND_LABELS = {
+  IN: { mf: 'Equity Mutual Fund',  mfd: 'Debt Mutual Fund',  mfx: 'Hybrid / Index Fund' },
+  US: { mf: 'Equity Fund / ETF',   mfd: 'Bond Fund',         mfx: 'Index / Target-Date Fund' },
+  GB: { mf: 'Equity Fund / OEIC',  mfd: 'Bond / Gilt Fund',  mfx: 'Index / Tracker Fund' },
+  EU: { mf: 'Equity Fund (UCITS)', mfd: 'Bond Fund',         mfx: 'Index / Mixed Fund' },
+  AE: { mf: 'Equity Fund / ETF',   mfd: 'Bond / Sukuk Fund', mfx: 'Index / Balanced Fund' },
+  SG: { mf: 'Equity Fund / ETF',   mfd: 'Bond Fund',         mfx: 'Index / Balanced Fund' },
+  AU: { mf: 'Equity Fund / ETF',   mfd: 'Bond Fund',         mfx: 'Index / Balanced Fund' },
+  CA: { mf: 'Equity Fund / ETF',   mfd: 'Bond Fund',         mfx: 'Index / Balanced Fund' },
+};
+
+const _ASSET_BY_ID = Object.fromEntries(ASSETS.map(a => [a.id, a]));
+
+// Resolve the display label for an asset id, honoring the active country's
+// fund-bucket terminology. Non-fund assets (and unlisted countries) use the
+// global ASSETS label.
+export function fundLabel(code, id) {
+  return (FUND_LABELS[code] && FUND_LABELS[code][id])
+    || (_ASSET_BY_ID[id] && _ASSET_BY_ID[id].label)
+    || id;
+}
+
 export const EXP_CATS = [
   { id: 'food',  label: 'Food / Groceries', icon: '🍔', color: '#FF6B6B' },
   { id: 'rent',  label: 'Rent / Housing',   icon: '🏠', color: '#4ECDC4' },
@@ -156,6 +181,7 @@ export function planFromPreset(code) {
     targetWd: 4,
     taxWd: p.taxWd ?? 0,     // tax on retirement withdrawals (%) — grosses up the draw
     stepUp: 0,               // annual SIP step-up (%/yr) — salary-linked savings growth
+    sipYears: 0,             // years the monthly SIP runs; 0 = until retirement
 
     separateGoals: false,
     alloc: {
