@@ -332,13 +332,6 @@ function buildCore() {
     fmt: v => v + '%', onInput: v => { plan.taxWd = v; refresh(); } });
   makeSlider(c, { label: 'SIP step-up %/yr', min: 0, max: 15, step: 0.5, value: plan.stepUp ?? 0,
     fmt: v => v + '%', onInput: v => { plan.stepUp = v; refresh(); } });
-  // How long the monthly SIP runs. Default (0) = invest all the way to retirement.
-  // Capping it models "invest for 10 years, retire at 15" — corpus keeps compounding.
-  const horizon = Math.max(1, plan.retireAge - plan.startAge);
-  const sipNow = (plan.sipYears > 0 && plan.sipYears < horizon) ? plan.sipYears : horizon;
-  makeSlider(c, { label: 'Invest for (years)', min: 1, max: horizon, step: 1, value: sipNow,
-    fmt: v => v >= horizon ? `${horizon} yrs · to retirement` : `${v} of ${horizon} yrs`,
-    onInput: v => { plan.sipYears = (v >= horizon ? 0 : v); refresh(); } });
 }
 
 function buildAlloc() {
@@ -504,6 +497,16 @@ function buildInvestBreak() {
   buildBreak('invBreak', INV_CATS, plan.invest,
     (c) => Math.max((plan.invest[c.id] || 0) * 3, big ? 1000000 : 30000),
     big ? 1000 : 100);
+  // How long the monthly SIP runs. Default (0) = invest all the way to retirement.
+  // Capping it models "invest for 10 years, retire at 15" — corpus keeps compounding.
+  const box = $('invBreak');
+  if (box) {
+    const horizon = Math.max(1, plan.retireAge - plan.startAge);
+    const sipNow = (plan.sipYears > 0 && plan.sipYears < horizon) ? plan.sipYears : horizon;
+    makeSlider(box, { label: 'Invest for (years)', min: 1, max: horizon, step: 1, value: sipNow,
+      fmt: v => v >= horizon ? `${horizon} yrs · to retirement` : `${v} of ${horizon} yrs`,
+      onInput: v => { plan.sipYears = (v >= horizon ? 0 : v); refresh(); } });
+  }
 }
 
 function buildChildren() {
