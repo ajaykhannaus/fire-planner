@@ -160,9 +160,11 @@ export function planFromPreset(code) {
     separateGoals: false,
     alloc: {
       us:  { pre: 30, post: 15, ret: p.returns.us,  tax: (p.assetTax?.us)  ?? p.taxWd },
-      mf:  { pre: 40, post: 25, ret: p.returns.mf,  tax: (p.assetTax?.mf)  ?? p.taxWd },
-      mfd: { pre: 0,  post: 0,  ret: p.returns.mfd, tax: (p.assetTax?.mfd) ?? p.taxWd },
-      mfx: { pre: 0,  post: 0,  ret: p.returns.mfx, tax: (p.assetTax?.mfx) ?? p.taxWd },
+      // MF buckets can hold named individual funds (name + weight + return); when
+      // present, the bucket return is the weighted average of its funds.
+      mf:  { pre: 40, post: 25, ret: p.returns.mf,  tax: (p.assetTax?.mf)  ?? p.taxWd, funds: [] },
+      mfd: { pre: 0,  post: 0,  ret: p.returns.mfd, tax: (p.assetTax?.mfd) ?? p.taxWd, funds: [] },
+      mfx: { pre: 0,  post: 0,  ret: p.returns.mfx, tax: (p.assetTax?.mfx) ?? p.taxWd, funds: [] },
       epf: { pre: 20, post: 30, ret: p.returns.epf, tax: (p.assetTax?.epf) ?? p.taxWd },
       fd:  { pre: 10, post: 30, ret: p.returns.fd,  tax: (p.assetTax?.fd)  ?? p.taxWd },
     },

@@ -1,6 +1,6 @@
 // PDF report generator. Uses jsPDF (window.jspdf.jsPDF) + jspdf-autotable (CDN).
 // Produces a multi-section downloadable PDF summarizing the whole plan.
-import { startAge, effectiveTaxRate } from './engine.js?v=DEV';
+import { startAge, effectiveTaxRate, bucketReturn, FUND_ASSETS } from './engine.js?v=DEV';
 import { buildStrategies } from './strategies.js?v=DEV';
 import { fmtPct } from './format.js?v=DEV';
 
@@ -180,10 +180,29 @@ export function generateReport(plan, R, ctx = {}) {
     ['Asset', 'Pre-ret %', 'Post-ret %', 'Return %', 'Tax %'],
     Object.entries(plan.alloc).map(([id, a]) => {
       const labels = { us: 'US / Global Stocks', mf: 'Equity Mutual Fund', mfd: 'Debt Mutual Fund', mfx: 'Hybrid / Index Fund', epf: 'EPF / 401K', fd: 'FD / Bonds' };
-      return [labels[id] || id, a.pre + '%', a.post + '%', a.ret + '%', (a.tax != null ? a.tax : (plan.taxWd ?? 0)) + '%'];
+      const funds = Array.isArray(a.funds) ? a.funds : [];
+      const hasFunds = FUND_ASSETS.has(id) && funds.length > 0;
+      const retCell = hasFunds ? bucketReturn(plan, id).toFixed(1) + '% (blended)' : a.ret + '%';
+      return [labels[id] || id, a.pre + '%', a.post + '%', retCell, (a.tax != null ? a.tax : (plan.taxWd ?? 0)) + '%'];
     }),
     { columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } } }
   );
+
+  // Named mutual-fund holdings, if any
+  const fundRows = [];
+  for (const [id, a] of Object.entries(plan.alloc)) {
+    if (!FUND_ASSETS.has(id) || !Array.isArray(a.funds) || !a.funds.length) continue;
+    const labels = { mf: 'Equity Mutual Fund', mfd: 'Debt Mutual Fund', mfx: 'Hybrid / Index Fund' };
+    const wTotal = a.funds.reduce((s, f) => s + (+f.weight || 0), 0) || 1;
+    for (const f of a.funds) {
+      fundRows.push([labels[id] || id, f.name || '(unnamed)', Math.round((+f.weight || 0) / wTotal * 100) + '%', (+f.ret || 0) + '%']);
+    }
+  }
+  if (fundRows.length) {
+    heading('Mutual Fund Holdings');
+    table(['Bucket', 'Fund', 'Share', 'Return %'], fundRows,
+      { columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' } } });
+  }
 
   // ====================================================================
   // GOAL FUNDING

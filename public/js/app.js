@@ -4,6 +4,7 @@ import { fmtMoney, fmtRaw, fmtPct } from './format.js?v=DEV';
 import { buildStrategies } from './strategies.js?v=DEV';
 import { generateReport } from './report.js?v=DEV';
 import { store } from './store.js?v=DEV';
+import * as Auth from './auth.js?v=DEV';
 
 // ---------- state ----------
 let plan = planFromPreset('IN');
@@ -300,7 +301,7 @@ function buildInputs() {
   // like #allocTotalRow exist, which would throw and abort the whole render.
   building = true;
   $('separateGoals').checked = !!plan.separateGoals;
-  buildCore(); buildAlloc(); buildExpenseBreak(); buildInvestBreak(); buildChildren(); buildGoals();
+  buildCore(); buildAlloc(); buildFunds(); buildExpenseBreak(); buildInvestBreak(); buildChildren(); buildGoals();
   building = false;
 }
 
@@ -338,8 +339,16 @@ function buildAlloc() {
     const td0 = document.createElement('td');
     td0.innerHTML = `<span style="color:${a.color}">●</span> ${a.label}`;
     tr.appendChild(td0);
+    const hasFunds = E.FUND_ASSETS.has(a.id) && (plan.alloc[a.id].funds || []).length > 0;
     for (const key of ['pre', 'post', 'ret', 'tax']) {
       const td = document.createElement('td');
+      // For a MF bucket with named funds, the Return is derived (weighted avg of its
+      // funds) and shown read-only — edit it via the per-fund returns below.
+      if (key === 'ret' && hasFunds) {
+        td.id = 'retCell_' + a.id; td.className = 'ret-derived';
+        td.innerHTML = `<span title="Weighted average of this bucket's funds — edit per-fund below">🔢 ${E.bucketReturn(plan, a.id).toFixed(1)}%</span>`;
+        tr.appendChild(td); continue;
+      }
       const mini = document.createElement('div'); mini.className = 'mini';
       const mx = key === 'ret' ? 20 : (key === 'tax' ? 50 : 100);
       if (plan.alloc[a.id][key] == null) plan.alloc[a.id][key] = key === 'tax' ? (plan.taxWd ?? 0) : 0;
@@ -368,6 +377,103 @@ function buildAlloc() {
   }
   const trt = document.createElement('tr'); trt.className = 'total-row'; trt.id = 'allocTotalRow';
   body.appendChild(trt);
+}
+
+// Per-bucket named mutual funds: each fund has a name, a weight (relative share
+// within the bucket) and its own return. The bucket's effective return is the
+// weight-weighted average, which flows into every calculation via the engine.
+function buildFunds() {
+  const wrap = $('mfFunds'); wrap.innerHTML = '';
+  const buckets = ASSETS.filter(a => E.FUND_ASSETS.has(a.id));
+  const intro = document.createElement('div');
+  intro.className = 'mf-intro';
+  intro.innerHTML = `<b>🧾 Mutual fund holdings.</b> Add the actual funds you hold under each bucket. Each fund's <b>weight</b> is its share of that bucket and each has its own <b>return</b>; the bucket's return becomes the weighted average.`;
+  wrap.appendChild(intro);
+
+  for (const a of buckets) {
+    const al = plan.alloc[a.id];
+    if (!Array.isArray(al.funds)) al.funds = [];
+    const card = document.createElement('div'); card.className = 'fund-bucket';
+
+    const head = document.createElement('div'); head.className = 'fund-head';
+    head.innerHTML = `<span class="fund-bucket-name"><span style="color:${a.color}">●</span> ${a.label}</span>`;
+    const eff = document.createElement('span'); eff.className = 'fund-eff'; eff.id = 'fundEff_' + a.id;
+    eff.textContent = al.funds.length ? `Effective return ${E.bucketReturn(plan, a.id).toFixed(1)}%` : `Bucket return ${(al.ret || 0)}% (no named funds)`;
+    head.appendChild(eff);
+    card.appendChild(head);
+
+    if (al.funds.length) {
+      const list = document.createElement('div'); list.className = 'fund-list';
+      const wTotal = al.funds.reduce((s, f) => s + (+f.weight || 0), 0);
+      al.funds.forEach((f, i) => {
+        const row = document.createElement('div'); row.className = 'fund-row';
+
+        const name = document.createElement('input');
+        name.type = 'text'; name.className = 'fund-name'; name.placeholder = 'Fund name';
+        name.value = f.name || '';
+        name.addEventListener('input', () => { f.name = name.value; });
+
+        const wgt = mkNum(f.weight, '%', 0, 100, (v) => { f.weight = v; syncFundEff(a.id); refresh(); }, 'weight');
+        const ret = mkNum(f.ret, '%', 0, 30, (v) => { f.ret = v; syncFundEff(a.id); refresh(); }, 'return');
+
+        const sharePct = wTotal > 0 ? Math.round((+f.weight || 0) / wTotal * 100) : 0;
+        const share = document.createElement('span'); share.className = 'fund-share'; share.title = 'Share of this bucket';
+        share.textContent = sharePct + '%';
+
+        const del = document.createElement('button'); del.className = 'fund-del'; del.title = 'Remove fund'; del.textContent = '✕';
+        del.onclick = () => { al.funds.splice(i, 1); buildAlloc(); buildFunds(); refresh(); };
+
+        const wWrap = fieldWrap('Weight', wgt);
+        const rWrap = fieldWrap('Return', ret);
+        row.append(name, wWrap, rWrap, share, del);
+        list.appendChild(row);
+      });
+      card.appendChild(list);
+    }
+
+    const add = document.createElement('button'); add.className = 'btn-ghost fund-add'; add.textContent = '+ Add fund';
+    add.onclick = () => {
+      al.funds.push({ name: '', weight: 25, ret: al.ret || 0 });
+      buildAlloc(); buildFunds(); refresh();
+    };
+    card.appendChild(add);
+    wrap.appendChild(card);
+  }
+}
+
+// small labelled numeric input used by the fund editor
+function mkNum(value, suffix, min, max, onCommit, aria) {
+  const inp = document.createElement('input');
+  inp.type = 'text'; inp.inputMode = 'decimal'; inp.className = 'fund-num';
+  inp.setAttribute('aria-label', aria); inp.value = (value ?? 0) + suffix;
+  const commit = () => {
+    let n = parseFloat(String(inp.value).replace(/[^0-9.\-]/g, ''));
+    if (!isFinite(n)) { inp.value = (value ?? 0) + suffix; return; }
+    n = Math.min(max, Math.max(min, n)); value = n; inp.value = n + suffix; onCommit(n);
+  };
+  inp.addEventListener('focus', () => { inp.value = String(parseFloat(inp.value) || 0); inp.select(); });
+  inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } });
+  inp.addEventListener('blur', commit);
+  return inp;
+}
+function fieldWrap(label, inp) {
+  const w = document.createElement('label'); w.className = 'fund-field';
+  const s = document.createElement('span'); s.textContent = label; w.append(s, inp); return w;
+}
+// update a bucket's derived-return labels (card header + alloc table cell) and the
+// per-fund share badges in place, without a structural rebuild (keeps input focus)
+function syncFundEff(id) {
+  const al = plan.alloc[id];
+  const eff = $('fundEff_' + id);
+  if (eff) eff.textContent = al.funds.length ? `Effective return ${E.bucketReturn(plan, id).toFixed(1)}%` : `Bucket return ${(al.ret || 0)}% (no named funds)`;
+  // find this bucket's card and refresh share badges from current weights
+  const cards = document.querySelectorAll('#mfFunds .fund-bucket');
+  const idx = ASSETS.filter(a => E.FUND_ASSETS.has(a.id)).findIndex(a => a.id === id);
+  const card = cards[idx];
+  if (!card) return;
+  const shares = card.querySelectorAll('.fund-share');
+  const wTotal = al.funds.reduce((s, f) => s + (+f.weight || 0), 0);
+  shares.forEach((el, i) => { el.textContent = (wTotal > 0 ? Math.round((+al.funds[i].weight || 0) / wTotal * 100) : 0) + '%'; });
 }
 
 function buildBreak(boxId, cats, store, maxFor, step) {
@@ -512,6 +618,13 @@ function updateAlloc(R) {
     <td class="${t.pre === 100 ? 'good' : 'bad'}">${t.pre}%</td>
     <td class="${t.post === 100 ? 'good' : 'bad'}">${t.post}%</td><td></td>
     <td title="Post-allocation-weighted effective rate">${fmtPct(effTax)}</td>`;
+
+  // keep derived Return cells for fund buckets in sync with their per-fund returns
+  for (const a of ASSETS) {
+    if (!E.FUND_ASSETS.has(a.id)) continue;
+    const cell = $('retCell_' + a.id);
+    if (cell) cell.innerHTML = `<span title="Weighted average of this bucket's funds — edit per-fund below">🔢 ${E.bucketReturn(plan, a.id).toFixed(1)}%</span>`;
+  }
 
   // Currency depreciation is added to the return of global (USD-denominated) assets.
   const usEff = E.effectiveReturn(plan, 'us');
@@ -784,7 +897,9 @@ function renderCompare() {
 
 // ---- report ----
 $('btnReport').onclick = () => {
-  try { generateReport(plan, window._R || E.compute(plan), { money, currentPlanName }); toast('PDF downloaded'); }
+  const u = Auth.getUser();
+  const ctx = { money, currentPlanName, user: u ? { name: u.displayName || '', email: u.email || '' } : undefined };
+  try { generateReport(plan, window._R || E.compute(plan), ctx); toast('PDF downloaded'); }
   catch (err) { console.error(err); toast('PDF failed: ' + err.message); }
 };
 
@@ -793,16 +908,78 @@ function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp
 function escapeAttr(s) { return escapeHtml(s); }
 
 // =========================================================
-// BOOT — no login, straight into the planner
+// AUTH UI (optional login — guest mode stays the default)
 // =========================================================
-(function boot() {
+function syncAuthUI() {
+  const u = Auth.getUser();
+  const badge = $('authBadge'), btnLogin = $('btnLogin'), btnLogout = $('btnLogout');
+  if (!btnLogin) return;   // markup not present (shouldn't happen)
+  if (u) {
+    badge.textContent = '☁️ ' + (u.email || u.displayName || 'Signed in');
+    badge.title = 'Plans synced to your account';
+    btnLogin.style.display = 'none';
+    btnLogout.style.display = '';
+  } else {
+    badge.textContent = '🔒 Saved in this browser';
+    badge.title = 'Guest mode — plans are stored only in this browser';
+    btnLogin.style.display = Auth.firebaseReady ? '' : 'none';
+    btnLogout.style.display = 'none';
+  }
+}
+
+let authMode = 'signin';   // 'signin' | 'signup'
+function openLoginModal() {
+  authMode = 'signin';
+  $('authError').textContent = '';
+  syncLoginModalMode();
+  $('loginModal').style.display = 'flex';
+}
+function syncLoginModalMode() {
+  $('authTitle').textContent = authMode === 'signin' ? 'Sign in' : 'Create account';
+  $('authSubmit').textContent = authMode === 'signin' ? 'Sign in' : 'Sign up';
+  $('authToggle').textContent = authMode === 'signin'
+    ? "No account? Create one" : 'Have an account? Sign in';
+  $('authForgot').style.display = authMode === 'signin' ? '' : 'none';
+}
+function authErr(e) { $('authError').textContent = (e && e.message) ? e.message.replace(/^Firebase:\s*/, '') : String(e); }
+
+if ($('btnLogin')) $('btnLogin').onclick = openLoginModal;
+if ($('alCancel')) $('alCancel').onclick = () => $('loginModal').style.display = 'none';
+if ($('authToggle')) $('authToggle').onclick = () => { authMode = authMode === 'signin' ? 'signup' : 'signin'; $('authError').textContent = ''; syncLoginModalMode(); };
+if ($('authGoogle')) $('authGoogle').onclick = async () => {
+  try { await Auth.signInWithPopup(new Auth.GoogleAuthProvider()); $('loginModal').style.display = 'none'; }
+  catch (e) { authErr(e); }
+};
+if ($('authSubmit')) $('authSubmit').onclick = async () => {
+  const email = $('authEmail').value.trim(), pw = $('authPassword').value;
+  if (!email || !pw) { $('authError').textContent = 'Enter an email and password.'; return; }
+  try {
+    if (authMode === 'signup') await Auth.createUserWithEmailAndPassword(email, pw);
+    else await Auth.signInWithEmailAndPassword(email, pw);
+    $('loginModal').style.display = 'none';
+  } catch (e) { authErr(e); }
+};
+if ($('authForgot')) $('authForgot').onclick = async () => {
+  const email = $('authEmail').value.trim();
+  if (!email) { $('authError').textContent = 'Enter your email first, then click reset.'; return; }
+  try { await Auth.sendPasswordResetEmail(email); $('authError').textContent = 'Password reset email sent.'; }
+  catch (e) { authErr(e); }
+};
+if ($('btnLogout')) $('btnLogout').onclick = () => {
+  maybeWarnUnsaved(async () => { try { await Auth.signOut(); } catch (e) { toast('Sign out failed'); } });
+};
+
+// =========================================================
+// BOOT — auth-gated; falls back to guest (localStorage) mode
+// =========================================================
+function runBoot() {
   loadingPlan = true;
   const plans = store.list();
   if (plans.length) {
     const p = store.get(plans[0].id);
     plan = migrate(p.data); currentPlanId = p.id; currentPlanName = p.name;
   } else {
-    // First run: seed a persisted starter plan so the list is never empty.
+    // Empty list: seed a persisted starter plan so the list is never empty.
     plan = planFromPreset('IN'); currentPlanName = 'My FIRE plan';
     try { currentPlanId = store.create(currentPlanName, plan); } catch { currentPlanId = null; }
   }
@@ -811,4 +988,47 @@ function escapeAttr(s) { return escapeHtml(s); }
   syncTopbar();
   loadPlanList();
   renderCompare();
-})();
+}
+
+// Re-render the plan LIST only when cloud snapshots arrive — never touch the live
+// plan / currentPlanId / dirty flag (the user may be mid-edit in another tab).
+store.onChange(() => loadPlanList());
+
+// Switch backends whenever auth state changes, then (re)boot once. A signed-in user
+// gets the cloud backend; everyone else gets guest mode. A slow/broken Firebase can
+// never strand the app on the loading overlay — a timeout + try/catch falls to local.
+let bootedOnce = false;
+async function bootForUser(user) {
+  // reset compare state — the plan set is changing under us
+  compareSel = []; if (compareChart) { compareChart.destroy(); compareChart = null; }
+  try {
+    if (user && Auth.firebaseReady) {
+      store.setBackend('cloud', { uid: user.uid });
+      await Promise.race([
+        store.whenReady(),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000)),
+      ]);
+    } else {
+      store.setBackend('local');
+    }
+  } catch (err) {
+    console.warn('[boot] cloud backend unavailable, using guest mode', err);
+    store.setBackend('local');
+  }
+  // discard any unsaved edits from a previous session/backend without prompting on first boot
+  if (bootedOnce) dirty = false;
+  currentPlanId = null; currentPlanName = 'Untitled plan';
+  runBoot();
+  bootedOnce = true;
+  syncAuthUI();
+  hideBootOverlay();
+}
+
+function hideBootOverlay() { const o = $('bootLoading'); if (o) o.style.display = 'none'; }
+
+// Hard fallback: if auth never resolves, boot guest mode after 6s.
+const bootGuard = setTimeout(() => { if (!bootedOnce) { store.setBackend('local'); runBoot(); bootedOnce = true; syncAuthUI(); hideBootOverlay(); } }, 6000);
+
+// Note: the sign-out button already guards unsaved edits via maybeWarnUnsaved, and
+// sign-in is an explicit user action, so we don't double-prompt here.
+Auth.onUser((user) => { clearTimeout(bootGuard); bootForUser(user); });

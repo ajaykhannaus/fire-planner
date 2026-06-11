@@ -12,8 +12,25 @@ export const startAge = (plan) => plan.startAge ?? START_AGE;
 // USD by `depr`%/yr, a foreign-currency holding gains that much extra in local terms.
 // Local-currency assets (MF, EPF, FD) are unaffected.
 const FX_ASSETS = new Set(['us']);
+
+// Mutual-fund buckets that can hold named individual funds. When a bucket has
+// funds, its return is the weight-weighted average of its funds' returns (weights
+// are relative — normalized by their sum), overriding the bucket's single `ret`.
+export const FUND_ASSETS = new Set(['mf', 'mfd', 'mfx']);
+export function bucketReturn(plan, id) {
+  const al = plan.alloc[id];
+  if (!al) return 0;
+  const funds = Array.isArray(al.funds) ? al.funds : [];
+  if (FUND_ASSETS.has(id) && funds.length) {
+    let w = 0, num = 0;
+    for (const f of funds) { const fw = +f.weight || 0; w += fw; num += fw * (+f.ret || 0); }
+    if (w > 0) return num / w;
+  }
+  return al.ret || 0;
+}
+
 export function effectiveReturn(plan, id) {
-  const base = plan.alloc[id]?.ret || 0;
+  const base = bucketReturn(plan, id);
   return FX_ASSETS.has(id) ? base + (plan.depr || 0) : base;
 }
 
