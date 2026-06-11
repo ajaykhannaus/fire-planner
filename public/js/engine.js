@@ -205,12 +205,37 @@ export function corpusAtRetFor(plan, annualSavings) {
   return Math.max(0, corpus);
 }
 
+// Present value (at the retirement date) of loan EMIs that keep running *into*
+// retirement, grossed up for withdrawal tax. Only counted when goals are funded
+// from the corpus (separateGoals === false), i.e. when the user asked to include
+// goals in retirement. A finite EMI stream (e.g. retire at 48, EMI til age 65)
+// is discounted at the post-retirement return so the required corpus / FIRE
+// status reflects that ongoing payment instead of ignoring it.
+export function retirementEmiPV(plan) {
+  if (!deductsGoals(plan)) return 0;
+  const postBl = blended(plan, 'post');
+  const tax = taxRate(plan);
+  let pv = 0;
+  for (const g of activeGoals(plan)) {
+    const imp = goalImpact(plan, g);
+    if (!(imp.emi > 0)) continue;
+    const from = Math.max(plan.retireAge, imp.loanStart);
+    for (let age = from; age < imp.loanEnd; age++) {
+      const grossEmi = (imp.emi * 12) / (1 - tax);   // pre-tax draw needed to net the EMI
+      pv += grossEmi / Math.pow(1 + postBl, age - plan.retireAge);
+    }
+  }
+  return pv;
+}
+
 export function targetRetCorpus(plan) {
   const annualExpAtRet = totalExpenses(plan) * 12 * inflFactor(plan, plan.retireAge);
   // Withdraw at targetWd%; the draw is taxed, so to net the expenses you need a
   // bigger corpus: corpus·targetWd·(1-tax) = expenses  →  /(1-tax).
   const grossAtRet = annualExpAtRet / (1 - taxRate(plan));
-  return plan.targetWd > 0 ? grossAtRet / (plan.targetWd / 100) : Infinity;
+  const base = plan.targetWd > 0 ? grossAtRet / (plan.targetWd / 100) : Infinity;
+  // Plus the lump needed today to service any EMI that runs past retirement.
+  return base + retirementEmiPV(plan);
 }
 
 // Monthly sinking-fund SIP to accumulate futureCost over yrs years at pre-ret return.
