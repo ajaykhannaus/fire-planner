@@ -1,6 +1,6 @@
 // Generates a briefing of strategies ("plans you can make in your career") to reach
 // FIRE and fund goals, with concrete numbers derived from the engine.
-import { corpusAtRetFor, targetRetCorpus, blended, totalExpenses, totalInvest, inflFactor, startAge } from './engine.js';
+import { corpusAtRetFor, targetRetCorpus, blended, totalExpenses, totalInvest, inflFactor, startAge } from './engine.js?v=DEV';
 
 // On-track check for a hypothetical retire age, keeping current savings.
 function onTrackAt(plan, retireAge) {
@@ -145,6 +145,6 @@ export function buildStrategies(plan, R) {
 }
 
 // local formatting helpers (kept here so report can reuse strategies without UI)
-import { fmtMoney, fmtPct } from './format.js';
+import { fmtMoney, fmtPct } from './format.js?v=DEV';
 function money(plan, v) { return fmtMoney(v, plan.country.symbol, plan.country.numberStyle); }
 function pct(x) { return fmtPct(x); }

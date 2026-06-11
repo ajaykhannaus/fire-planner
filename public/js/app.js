@@ -1,9 +1,9 @@
-import { PRESETS, PRESET_ORDER, planFromPreset, ASSETS, EXP_CATS, INV_CATS, GOALS } from './presets.js';
-import * as E from './engine.js';
-import { fmtMoney, fmtRaw, fmtPct } from './format.js';
-import { buildStrategies } from './strategies.js';
-import { generateReport } from './report.js';
-import { store } from './store.js';
+import { PRESETS, PRESET_ORDER, planFromPreset, ASSETS, EXP_CATS, INV_CATS, GOALS } from './presets.js?v=DEV';
+import * as E from './engine.js?v=DEV';
+import { fmtMoney, fmtRaw, fmtPct } from './format.js?v=DEV';
+import { buildStrategies } from './strategies.js?v=DEV';
+import { generateReport } from './report.js?v=DEV';
+import { store } from './store.js?v=DEV';
 
 // ---------- state ----------
 let plan = planFromPreset('IN');
@@ -11,6 +11,8 @@ let currentPlanId = null;
 let currentPlanName = 'Untitled plan';
 let building = false;   // true while buildInputs() is (re)building structure; suppresses refresh()
 let chart = null, chartMode = 'corpus';
+let compareChart = null;        // overlaid corpus chart for the Compare Scenarios card
+let compareSel = [];            // selected ids: 'current' or a saved plan id
 const expanded = { expBreak: false, invBreak: false };
 
 const $ = (id) => document.getElementById(id);
@@ -60,7 +62,11 @@ function migrate(data) {
   const base = planFromPreset('IN');
   const merged = { ...base, ...data };
   merged.country = { ...base.country, ...(data.country || {}) };
-  merged.alloc = { ...base.alloc, ...(data.alloc || {}) };
+  // deep-merge each asset so older saved plans inherit new fields (tax, mfd/mfx rows)
+  merged.alloc = {};
+  for (const id of Object.keys(base.alloc)) {
+    merged.alloc[id] = { ...base.alloc[id], ...((data.alloc || {})[id] || {}) };
+  }
   merged.expenses = { ...base.expenses, ...(data.expenses || {}) };
   merged.invest = { ...base.invest, ...(data.invest || {}) };
   // deep-merge each goal so older saved plans inherit new finance/appreciation fields
@@ -128,7 +134,10 @@ function applyCountry(code) {
   };
   plan.inflation = p.inflation; plan.fxRate = p.fxRate; plan.depr = p.depr;
   plan.taxWd = p.taxWd ?? 0;
-  for (const a of ASSETS) plan.alloc[a.id].ret = p.returns[a.id];
+  for (const a of ASSETS) {
+    plan.alloc[a.id].ret = p.returns[a.id];
+    plan.alloc[a.id].tax = (p.assetTax?.[a.id]) ?? p.taxWd ?? 0;
+  }
   plan.invested = Math.min(Math.max(plan.invested, p.investedMin), p.investedMax);
   buildInputs(); refresh();
   toast(`Applied ${p.name} assumptions`);
@@ -261,6 +270,8 @@ function buildCore() {
     fmt: v => v + '%', onInput: v => { plan.targetWd = v; refresh(); } });
   makeSlider(c, { label: 'Withdrawal tax %', min: 0, max: 50, step: 0.5, value: plan.taxWd ?? 0,
     fmt: v => v + '%', onInput: v => { plan.taxWd = v; refresh(); } });
+  makeSlider(c, { label: 'SIP step-up %/yr', min: 0, max: 15, step: 0.5, value: plan.stepUp ?? 0,
+    fmt: v => v + '%', onInput: v => { plan.stepUp = v; refresh(); } });
 }
 
 function buildAlloc() {
@@ -270,13 +281,14 @@ function buildAlloc() {
     const td0 = document.createElement('td');
     td0.innerHTML = `<span style="color:${a.color}">●</span> ${a.label}`;
     tr.appendChild(td0);
-    for (const key of ['pre', 'post', 'ret']) {
+    for (const key of ['pre', 'post', 'ret', 'tax']) {
       const td = document.createElement('td');
       const mini = document.createElement('div'); mini.className = 'mini';
-      const mx = key === 'ret' ? 20 : 100;
+      const mx = key === 'ret' ? 20 : (key === 'tax' ? 50 : 100);
+      if (plan.alloc[a.id][key] == null) plan.alloc[a.id][key] = key === 'tax' ? (plan.taxWd ?? 0) : 0;
       const inp = document.createElement('input');
       inp.type = 'range'; inp.min = 0; inp.max = mx;
-      inp.step = key === 'ret' ? 0.5 : 5; inp.value = plan.alloc[a.id][key];
+      inp.step = (key === 'ret' || key === 'tax') ? 0.5 : 5; inp.value = plan.alloc[a.id][key];
       const v = document.createElement('input'); v.className = 'minival mini-input';
       v.type = 'text'; v.inputMode = 'decimal'; v.value = plan.alloc[a.id][key] + '%';
       v.title = 'Click to type an exact value';
@@ -414,6 +426,8 @@ function renderDerived(R) {
     ['Real return', fmtPct(R.realReturn)],
     ['FIRE multiple', isFinite(R.fireMult) ? R.fireMult.toFixed(1) + '×' : '∞'],
     ['FIRE number today', isFinite(R.fireNumber) ? money(R.fireNumber) : '—'],
+    ['Eff. withdrawal tax', fmtPct(E.effectiveTaxRate(plan))],
+    ['SIP step-up', (plan.stepUp ?? 0) + '%/yr'],
     ['Total expenses/mo', money(R.monthlyExp)],
     ['Total savings/mo', money(R.monthlyInv)],
   ];
@@ -435,15 +449,18 @@ function updateAlloc(R) {
   stackBar('preBar', ASSETS.map(a => ({ v: plan.alloc[a.id].pre, color: a.color })));
   stackBar('postBar', ASSETS.map(a => ({ v: plan.alloc[a.id].post, color: a.color })));
   const t = R.allocTotals;
+  const effTax = E.effectiveTaxRate(plan);
   $('allocTotalRow').innerHTML = `<td>Total</td>
     <td class="${t.pre === 100 ? 'good' : 'bad'}">${t.pre}%</td>
-    <td class="${t.post === 100 ? 'good' : 'bad'}">${t.post}%</td><td></td>`;
+    <td class="${t.post === 100 ? 'good' : 'bad'}">${t.post}%</td><td></td>
+    <td title="Post-allocation-weighted effective rate">${fmtPct(effTax)}</td>`;
 
   // Currency depreciation is added to the return of global (USD-denominated) assets.
   const usEff = E.effectiveReturn(plan, 'us');
-  $('allocNote').innerHTML = plan.depr > 0
-    ? `<b>🌐 Currency effect:</b> a weakening ${plan.country.symbol.trim() || 'home'} currency adds your <b>${plan.depr}%/yr</b> depreciation to global stocks — so <b>US / Global Stocks</b> effectively returns <b>${plan.alloc.us.ret}% + ${plan.depr}% = ${usEff}%/yr</b> in local-currency terms. Local assets (MF, EPF, FD) are unaffected.`
-    : `<b>🌐 Currency effect:</b> set a currency depreciation above 0% (Core Inputs) and it is added to the return of <b>US / Global Stocks</b>, since a weakening home currency boosts foreign-currency holdings.`;
+  $('allocNote').innerHTML = (plan.depr > 0
+    ? `<b>🌐 Currency effect:</b> a weakening ${plan.country.symbol.trim() || 'home'} currency adds your <b>${plan.depr}%/yr</b> depreciation to global stocks — so <b>US / Global Stocks</b> effectively returns <b>${plan.alloc.us.ret}% + ${plan.depr}% = ${usEff}%/yr</b> in local-currency terms. Local assets (Equity/Debt/Hybrid MF, EPF, FD) are unaffected.`
+    : `<b>🌐 Currency effect:</b> set a currency depreciation above 0% (Core Inputs) and it is added to the return of <b>US / Global Stocks</b>, since a weakening home currency boosts foreign-currency holdings.`)
+    + `<br><b>🧾 Withdrawal tax:</b> the per-asset Tax % is blended by your <b>post-retirement</b> allocation into a single effective rate of <b>${fmtPct(effTax)}</b> applied to retirement draws. (A single-corpus model can't track per-asset depletion order, so this weighted rate is the honest approximation.)`;
 }
 
 function updateExpenses(R) {
@@ -610,6 +627,103 @@ function renderSummary(R) {
     <td>${s.goalHit > 0 ? money(s.goalHit) : ''}</td></tr>`).join('');
 }
 
+// =========================================================
+// COMPARE SCENARIOS
+// =========================================================
+const COMPARE_PALETTE = ['#119b90', '#185FA5', '#d64545'];
+
+$('btnCompare').onclick = openCompareModal;
+$('cpCancel').onclick = () => $('compareModal').style.display = 'none';
+
+function openCompareModal() {
+  const saved = store.list();
+  const opts = [{ id: 'current', name: `${currentPlanName} (current)` },
+    ...saved.map(p => ({ id: p.id, name: p.name }))];
+  $('compareForm').innerHTML = opts.map(o => {
+    const checked = compareSel.includes(o.id) ? ' checked' : '';
+    return `<label class="switch-row" style="grid-column:1/-1">
+      <input type="checkbox" class="cp-pick" value="${o.id}"${checked}/>
+      <span>${escapeHtml(o.name)}</span></label>`;
+  }).join('') || '<div class="muted small">No plans to compare.</div>';
+  // cap selection at 3
+  const sync = () => {
+    const picks = [...document.querySelectorAll('.cp-pick:checked')];
+    document.querySelectorAll('.cp-pick:not(:checked)').forEach(c => { c.disabled = picks.length >= 3; });
+  };
+  document.querySelectorAll('.cp-pick').forEach(c => c.addEventListener('change', sync));
+  sync();
+  $('compareModal').style.display = 'flex';
+}
+
+$('cpApply').onclick = () => {
+  compareSel = [...document.querySelectorAll('.cp-pick:checked')].map(c => c.value).slice(0, 3);
+  $('compareModal').style.display = 'none';
+  renderCompare();
+};
+
+// Resolve a selection id to a {plan, name} pair (current = live plan, else a saved+migrated one).
+function resolveCompare(id) {
+  if (id === 'current') return { plan, name: currentPlanName + ' (current)' };
+  const rec = store.get(id);
+  if (!rec) return null;
+  return { plan: migrate(rec.data), name: rec.name };
+}
+
+function renderCompare() {
+  const box = $('compareTable');
+  if (!compareSel.length) { box.innerHTML = '<div class="muted small">No scenarios selected. Click “Choose plans…”.</div>'; if (compareChart) { compareChart.destroy(); compareChart = null; } $('compareChartBox').style.display = 'none'; return; }
+  const cols = compareSel.map(resolveCompare).filter(Boolean);
+  const data = cols.map(c => {
+    const sym = c.plan.country.symbol, style = c.plan.country.numberStyle;
+    const m = (v) => fmtMoney(v, sym, style);
+    return { name: c.name, plan: c.plan, R: E.compute(c.plan), m };
+  });
+
+  const rows = [
+    ['Country', d => `${d.plan.country.flag || ''} ${d.plan.country.name || d.plan.country.code}`],
+    ['Current age', d => String(E.startAge(d.plan))],
+    ['Retire age', d => String(d.plan.retireAge)],
+    ['Monthly exp', d => d.m(d.R.monthlyExp)],
+    ['Year-1 SIP/mo', d => d.m(d.R.monthlyInv)],
+    ['SIP step-up', d => (d.plan.stepUp ?? 0) + '%/yr'],
+    ['Eff. wd tax', d => fmtPct(E.effectiveTaxRate(d.plan))],
+    ['Corpus @ retire', d => d.m(d.R.corpusAtRet)],
+    ['Target corpus', d => d.m(d.R.required)],
+    ['Can retire?', d => d.R.canRetire ? '✅ Yes' : '❌ No'],
+    ['FIRE number', d => isFinite(d.R.fireNumber) ? d.m(d.R.fireNumber) : '—'],
+    ['Depletes at', d => d.R.dep ? `age ${d.R.dep}` : 'never'],
+  ];
+  box.innerHTML = `<table class="summary"><thead><tr><th>Metric</th>${data.map((d, i) =>
+    `<th><span style="color:${COMPARE_PALETTE[i]}">●</span> ${escapeHtml(d.name)}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(([label, fn]) => `<tr><td><b>${label}</b></td>${data.map(d => `<td>${fn(d)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+
+  // overlaid corpus chart (age ≥ 35)
+  const ages = [];
+  for (let a = 35; a <= E.END_AGE; a++) ages.push(a);
+  const datasets = data.map((d, i) => {
+    const byAge = Object.fromEntries(d.R.simGoals.map(s => [s.age, s.corpus]));
+    return { label: d.name, data: ages.map(a => byAge[a] ?? null),
+      borderColor: COMPARE_PALETTE[i], backgroundColor: 'transparent',
+      tension: .25, pointRadius: 0, spanGaps: true };
+  });
+  $('compareChartBox').style.display = '';
+  if (compareChart) compareChart.destroy();
+  compareChart = new Chart($('compareChart'), {
+    type: 'line', data: { labels: ages, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#5a6675', boxWidth: 14 } },
+        tooltip: { callbacks: { label: c => `${c.dataset.label}: ${data[c.datasetIndex].m(c.raw)}` } },
+      },
+      scales: {
+        x: { ticks: { color: '#8a96a4' }, grid: { color: 'rgba(0,0,0,.06)' }, title: { display: true, text: 'Age', color: '#8a96a4' } },
+        y: { ticks: { color: '#8a96a4', callback: v => data[0].m(v) }, grid: { color: 'rgba(0,0,0,.06)' } },
+      },
+    },
+  });
+}
+
 // ---- report ----
 $('btnReport').onclick = () => {
   try { generateReport(plan, window._R || E.compute(plan), { money, currentPlanName }); toast('PDF downloaded'); }
@@ -630,4 +744,5 @@ function escapeAttr(s) { return escapeHtml(s); }
   populateCountrySelect();
   syncTopbar();
   loadPlanList();
+  renderCompare();
 })();

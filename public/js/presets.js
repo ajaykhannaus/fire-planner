@@ -3,12 +3,14 @@
 //
 // fields:
 //  code, name, flag, symbol, numberStyle, inflation(%), depr(%) [local-currency depreciation vs USD],
-//  fxRate [units of local currency per 1 USD], returns {us, mf, epf, fd} (%),
-//  expenses {…} monthly defaults, ranges for the "invested" slider.
+//  fxRate [units of local currency per 1 USD], returns {us, mf, mfd, mfx, epf, fd} (%),
+//  assetTax {…} per-asset withdrawal tax %, expenses {…} monthly defaults, ranges for the "invested" slider.
 
 export const ASSETS = [
   { id: 'us',  label: 'US / Global Stocks', short: 'Stocks', color: '#185FA5' },
-  { id: 'mf',  label: 'Local Equity / MF',  short: 'Equity', color: '#0F6E56' },
+  { id: 'mf',  label: 'Equity Mutual Fund', short: 'Equity MF', color: '#0F6E56' },
+  { id: 'mfd', label: 'Debt Mutual Fund',   short: 'Debt MF', color: '#0A8F8F' },
+  { id: 'mfx', label: 'Hybrid / Index Fund', short: 'Hybrid', color: '#2E8B57' },
   { id: 'epf', label: 'Retirement (EPF/401k/Pension)', short: 'Retirement', color: '#533AB7' },
   { id: 'fd',  label: 'Bonds / FD / Cash',  short: 'Bonds',  color: '#BA7517' },
 ];
@@ -25,7 +27,9 @@ export const EXP_CATS = [
 
 export const INV_CATS = [
   { id: 'us',    label: 'US / Global ETF',  icon: '🌐', color: '#FF6B6B' },
-  { id: 'mf',    label: 'Local Stocks / MF', icon: '📈', color: '#4ECDC4' },
+  { id: 'mf',    label: 'Equity MF',        icon: '📈', color: '#4ECDC4' },
+  { id: 'mfd',   label: 'Debt MF',          icon: '🏵️', color: '#0A8F8F' },
+  { id: 'mfx',   label: 'Hybrid / Index',   icon: '🪙', color: '#2E8B57' },
   { id: 'epf',   label: 'Retirement acct',  icon: '🏦', color: '#45B7D1' },
   { id: 'fd',    label: 'Bonds / FD',       icon: '💰', color: '#96CEB4' },
   { id: 'other', label: 'Other',            icon: '📦', color: '#FFD479' },
@@ -46,7 +50,8 @@ export const PRESETS = {
   IN: {
     code: 'IN', name: 'India', flag: '🇮🇳', symbol: '₹', numberStyle: 'indian',
     inflation: 6, depr: 3, fxRate: 83, taxWd: 12.5,   // LTCG on equity
-    returns: { us: 12, mf: 12, epf: 8, fd: 7 },
+    returns: { us: 12, mf: 12, mfd: 7, mfx: 11, epf: 8, fd: 7 },
+    assetTax: { us: 12.5, mf: 12.5, mfd: 30, mfx: 12.5, epf: 0, fd: 30 },  // equity LTCG vs debt at slab; EPF tax-free
     expenses: { food: 12000, rent: 18000, util: 4000, lux: 6000, car: 5000, emi: 0, other: 5000 }, // ₹50k/mo total
     investedMin: 500000, investedMax: 500000000, investedStep: 500000, investedDefault: 10000000,  // ₹1cr
     goalDefaults: { house: 15000000, car: 1500000, wedding: 3000000, edu: 5000000, travel: 1000000, custom: 2000000 },
@@ -55,7 +60,8 @@ export const PRESETS = {
   US: {
     code: 'US', name: 'United States', flag: '🇺🇸', symbol: '$', numberStyle: 'western',
     inflation: 3, depr: 0, fxRate: 1, taxWd: 15,   // long-term capital gains
-    returns: { us: 10, mf: 9, epf: 7, fd: 4.5 },
+    returns: { us: 10, mf: 9, mfd: 4.5, mfx: 8, epf: 7, fd: 4.5 },
+    assetTax: { us: 15, mf: 15, mfd: 15, mfx: 15, epf: 15, fd: 15 },
     expenses: { food: 800, rent: 1500, util: 300, lux: 600, car: 400, emi: 300, other: 100 },
     investedMin: 10000, investedMax: 20000000, investedStep: 10000, investedDefault: 500000,
     goalDefaults: { house: 100000, car: 40000, wedding: 50000, edu: 80000, travel: 15000, custom: 30000 },
@@ -64,7 +70,8 @@ export const PRESETS = {
   GB: {
     code: 'GB', name: 'United Kingdom', flag: '🇬🇧', symbol: '£', numberStyle: 'western',
     inflation: 3, depr: 0.5, fxRate: 0.79, taxWd: 10,
-    returns: { us: 9, mf: 8, epf: 6.5, fd: 4.5 },
+    returns: { us: 9, mf: 8, mfd: 4.5, mfx: 7, epf: 6.5, fd: 4.5 },
+    assetTax: { us: 10, mf: 10, mfd: 10, mfx: 10, epf: 10, fd: 10 },
     expenses: { food: 500, rent: 1400, util: 280, lux: 500, car: 350, emi: 400, other: 120 },
     investedMin: 10000, investedMax: 15000000, investedStep: 10000, investedDefault: 400000,
     goalDefaults: { house: 80000, car: 30000, wedding: 40000, edu: 60000, travel: 12000, custom: 25000 },
@@ -73,7 +80,8 @@ export const PRESETS = {
   EU: {
     code: 'EU', name: 'Eurozone', flag: '🇪🇺', symbol: '€', numberStyle: 'western',
     inflation: 2.5, depr: 0, fxRate: 0.92, taxWd: 15,
-    returns: { us: 9, mf: 8, epf: 6, fd: 4 },
+    returns: { us: 9, mf: 8, mfd: 4, mfx: 7, epf: 6, fd: 4 },
+    assetTax: { us: 15, mf: 15, mfd: 15, mfx: 15, epf: 15, fd: 15 },
     expenses: { food: 550, rent: 1300, util: 300, lux: 500, car: 350, emi: 400, other: 120 },
     investedMin: 10000, investedMax: 15000000, investedStep: 10000, investedDefault: 400000,
     goalDefaults: { house: 90000, car: 35000, wedding: 45000, edu: 50000, travel: 12000, custom: 25000 },
@@ -82,7 +90,8 @@ export const PRESETS = {
   AE: {
     code: 'AE', name: 'UAE', flag: '🇦🇪', symbol: 'AED ', numberStyle: 'western',
     inflation: 2.5, depr: 0, fxRate: 3.67, taxWd: 0,   // no personal capital-gains tax
-    returns: { us: 10, mf: 8, epf: 0, fd: 5 },
+    returns: { us: 10, mf: 8, mfd: 5, mfx: 7, epf: 0, fd: 5 },
+    assetTax: { us: 0, mf: 0, mfd: 0, mfx: 0, epf: 0, fd: 0 },
     expenses: { food: 2500, rent: 6000, util: 800, lux: 2000, car: 1500, emi: 2000, other: 700 },
     investedMin: 50000, investedMax: 50000000, investedStep: 50000, investedDefault: 1500000,
     goalDefaults: { house: 400000, car: 120000, wedding: 150000, edu: 250000, travel: 50000, custom: 80000 },
@@ -91,7 +100,8 @@ export const PRESETS = {
   SG: {
     code: 'SG', name: 'Singapore', flag: '🇸🇬', symbol: 'S$', numberStyle: 'western',
     inflation: 2.5, depr: 0, fxRate: 1.35, taxWd: 0,   // no capital-gains tax
-    returns: { us: 9, mf: 8, epf: 4, fd: 3.5 },
+    returns: { us: 9, mf: 8, mfd: 3.5, mfx: 7, epf: 4, fd: 3.5 },
+    assetTax: { us: 0, mf: 0, mfd: 0, mfx: 0, epf: 0, fd: 0 },
     expenses: { food: 900, rent: 2800, util: 250, lux: 800, car: 900, emi: 1200, other: 300 },
     investedMin: 20000, investedMax: 30000000, investedStep: 20000, investedDefault: 800000,
     goalDefaults: { house: 200000, car: 120000, wedding: 60000, edu: 100000, travel: 20000, custom: 40000 },
@@ -100,7 +110,8 @@ export const PRESETS = {
   AU: {
     code: 'AU', name: 'Australia', flag: '🇦🇺', symbol: 'A$', numberStyle: 'western',
     inflation: 3, depr: 1, fxRate: 1.52, taxWd: 15,
-    returns: { us: 9, mf: 8.5, epf: 7, fd: 4.5 },
+    returns: { us: 9, mf: 8.5, mfd: 4.5, mfx: 7.5, epf: 7, fd: 4.5 },
+    assetTax: { us: 15, mf: 15, mfd: 15, mfx: 15, epf: 15, fd: 15 },
     expenses: { food: 900, rent: 2200, util: 350, lux: 700, car: 500, emi: 600, other: 200 },
     investedMin: 20000, investedMax: 30000000, investedStep: 20000, investedDefault: 700000,
     goalDefaults: { house: 150000, car: 40000, wedding: 50000, edu: 70000, travel: 15000, custom: 30000 },
@@ -109,7 +120,8 @@ export const PRESETS = {
   CA: {
     code: 'CA', name: 'Canada', flag: '🇨🇦', symbol: 'C$', numberStyle: 'western',
     inflation: 3, depr: 1, fxRate: 1.36, taxWd: 13,
-    returns: { us: 9, mf: 8, epf: 6.5, fd: 4.5 },
+    returns: { us: 9, mf: 8, mfd: 4.5, mfx: 7, epf: 6.5, fd: 4.5 },
+    assetTax: { us: 13, mf: 13, mfd: 13, mfx: 13, epf: 13, fd: 13 },
     expenses: { food: 800, rent: 1900, util: 300, lux: 600, car: 450, emi: 500, other: 200 },
     investedMin: 20000, investedMax: 30000000, investedStep: 20000, investedDefault: 600000,
     goalDefaults: { house: 120000, car: 40000, wedding: 45000, edu: 60000, travel: 14000, custom: 28000 },
@@ -143,16 +155,19 @@ export function planFromPreset(code) {
     depr: p.depr,            // local-currency depreciation vs USD per year (%)
     targetWd: 4,
     taxWd: p.taxWd ?? 0,     // tax on retirement withdrawals (%) — grosses up the draw
+    stepUp: 0,               // annual SIP step-up (%/yr) — salary-linked savings growth
 
     separateGoals: false,
     alloc: {
-      us:  { pre: 30, post: 15, ret: p.returns.us },
-      mf:  { pre: 40, post: 25, ret: p.returns.mf },
-      epf: { pre: 20, post: 30, ret: p.returns.epf },
-      fd:  { pre: 10, post: 30, ret: p.returns.fd },
+      us:  { pre: 30, post: 15, ret: p.returns.us,  tax: (p.assetTax?.us)  ?? p.taxWd },
+      mf:  { pre: 40, post: 25, ret: p.returns.mf,  tax: (p.assetTax?.mf)  ?? p.taxWd },
+      mfd: { pre: 0,  post: 0,  ret: p.returns.mfd, tax: (p.assetTax?.mfd) ?? p.taxWd },
+      mfx: { pre: 0,  post: 0,  ret: p.returns.mfx, tax: (p.assetTax?.mfx) ?? p.taxWd },
+      epf: { pre: 20, post: 30, ret: p.returns.epf, tax: (p.assetTax?.epf) ?? p.taxWd },
+      fd:  { pre: 10, post: 30, ret: p.returns.fd,  tax: (p.assetTax?.fd)  ?? p.taxWd },
     },
     expenses: { ...p.expenses },
-    invest: { us: 0, mf: 0, epf: 0, fd: 0, other: 0 },
+    invest: { us: 0, mf: 0, mfd: 0, mfx: 0, epf: 0, fd: 0, other: 0 },
     children: 0,
     childYears: [10, 14, 18],
     childCost: p.childCostDefault,

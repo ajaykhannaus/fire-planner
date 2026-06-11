@@ -1,5 +1,5 @@
 // Pure finance engine. No DOM. Takes a `plan` object, returns numbers.
-import { ASSETS, EXP_CATS, INV_CATS, GOALS } from './presets.js';
+import { ASSETS, EXP_CATS, INV_CATS, GOALS } from './presets.js?v=DEV';
 
 export const START_AGE = 30;   // default current age when a plan doesn't specify one
 export const END_AGE = 100;
@@ -26,9 +26,27 @@ export function blended(plan, phase) {
   return wsum > 0 ? (num / wsum) / 100 : 0;
 }
 
+// Post-retirement allocation-weighted EFFECTIVE withdrawal tax. The single-corpus
+// sim can't track per-asset depletion, so we blend each asset's tax by its post-ret
+// allocation weight — the honest approximation. Falls back to plan.taxWd per asset,
+// and to plan.taxWd overall when no post weights exist.
+export function effectiveTaxRate(plan) {
+  let wsum = 0, num = 0;
+  for (const a of ASSETS) {
+    const al = plan.alloc[a.id];
+    if (!al) continue;
+    const w = al.post || 0;
+    if (w <= 0) continue;
+    const t = (al.tax != null ? al.tax : (plan.taxWd || 0)) / 100;
+    wsum += w; num += w * t;
+  }
+  const rate = wsum > 0 ? num / wsum : (plan.taxWd || 0) / 100;
+  return Math.min(0.95, Math.max(0, rate));
+}
+
 // Withdrawal tax as a fraction in [0, 0.95]. To net `E` of spending in retirement
 // you must withdraw E/(1-tax) from the corpus; the rest goes to tax.
-export const taxRate = (plan) => Math.min(0.95, Math.max(0, (plan.taxWd || 0) / 100));
+export const taxRate = (plan) => effectiveTaxRate(plan);
 
 export const totalExpenses = (plan) => EXP_CATS.reduce((s, c) => s + (plan.expenses[c.id] || 0), 0);
 export const totalInvest = (plan) => INV_CATS.reduce((s, c) => s + (plan.invest[c.id] || 0), 0);
@@ -87,6 +105,8 @@ export function simulate(plan, opts = {}) {
   const postBl = opts.postOverride != null ? opts.postOverride : blended(plan, 'post');
   const annualExpBase = totalExpenses(plan) * 12;
   const annualSavings = (opts.savingsOverride != null ? opts.savingsOverride : totalInvest(plan)) * 12;
+  const step = (plan.stepUp || 0) / 100;     // annual SIP step-up
+  let yearSavings = annualSavings;           // grows by (1+step) after each pre-ret year
   const tax = taxRate(plan);
   const useGoals = opts.includeGoals && deductsGoals(plan);
 
@@ -111,7 +131,7 @@ export function simulate(plan, opts = {}) {
     let wd = null;
     if (age >= plan.retireAge) wd = corpus > 0 ? (grossExp / corpus) * 100 : 100;
     out.push({ age, corpus, goalHit, wd, annualExp, grossExp, tax: taxPaid, emi: emiYear, assetValue, netWorth: corpus + assetValue });
-    if (age < plan.retireAge) corpus = corpus * (1 + preR) + annualSavings;
+    if (age < plan.retireAge) { corpus = corpus * (1 + preR) + yearSavings; yearSavings *= (1 + step); }
     else corpus = corpus * (1 + postBl) - grossExp;
     if (corpus < 0) corpus = 0;
   }
@@ -135,11 +155,14 @@ export function corpusAtRetFor(plan, annualSavings) {
       }
     }
   }
+  const step = (plan.stepUp || 0) / 100;
+  let yearSavings = annualSavings;
   let corpus = plan.invested;
   for (let age = startAge(plan); age < plan.retireAge; age++) {
     if (goalByAge[age]) corpus -= goalByAge[age];
     if (corpus < 0) corpus = 0;
-    corpus = corpus * (1 + preR) + annualSavings;
+    corpus = corpus * (1 + preR) + yearSavings;
+    yearSavings *= (1 + step);
   }
   if (goalByAge[plan.retireAge]) corpus -= goalByAge[plan.retireAge];
   return Math.max(0, corpus);

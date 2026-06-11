@@ -1,8 +1,8 @@
 // PDF report generator. Uses jsPDF (window.jspdf.jsPDF) + jspdf-autotable (CDN).
 // Produces a multi-section downloadable PDF summarizing the whole plan.
-import { startAge } from './engine.js';
-import { buildStrategies } from './strategies.js';
-import { fmtPct } from './format.js';
+import { startAge, effectiveTaxRate } from './engine.js?v=DEV';
+import { buildStrategies } from './strategies.js?v=DEV';
+import { fmtPct } from './format.js?v=DEV';
 
 const ACCENT = [17, 155, 144];   // #119b90
 const DARK   = [30, 41, 59];     // slate
@@ -98,7 +98,8 @@ export function generateReport(plan, R, ctx = {}) {
       ['Monthly expenses', money(R.monthlyExp) + '/mo'],
       ['Inflation', fmtPct(plan.inflation / 100)],
       ['Target withdrawal rate', plan.targetWd + '%'],
-      ['Withdrawal tax', (plan.taxWd ?? 0) + '%'],
+      ['Effective withdrawal tax', fmtPct(effectiveTaxRate(plan))],
+      ['SIP step-up', (plan.stepUp ?? 0) + '%/yr'],
       ['Pre-retirement blended return', fmtPct(R.preR)],
       ['Post-retirement blended return', fmtPct(R.postBl)],
       ['Real (inflation-adjusted) return', fmtPct(R.realReturn)],
@@ -176,12 +177,12 @@ export function generateReport(plan, R, ctx = {}) {
   // ====================================================================
   heading('Asset Allocation');
   table(
-    ['Asset', 'Pre-ret %', 'Post-ret %', 'Return %'],
+    ['Asset', 'Pre-ret %', 'Post-ret %', 'Return %', 'Tax %'],
     Object.entries(plan.alloc).map(([id, a]) => {
-      const labels = { us: 'US Stocks', mf: 'India MF / Equity', epf: 'EPF / 401K', fd: 'FD / Bonds' };
-      return [labels[id] || id, a.pre + '%', a.post + '%', a.ret + '%'];
+      const labels = { us: 'US / Global Stocks', mf: 'Equity Mutual Fund', mfd: 'Debt Mutual Fund', mfx: 'Hybrid / Index Fund', epf: 'EPF / 401K', fd: 'FD / Bonds' };
+      return [labels[id] || id, a.pre + '%', a.post + '%', a.ret + '%', (a.tax != null ? a.tax : (plan.taxWd ?? 0)) + '%'];
     }),
-    { columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } } }
+    { columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } } }
   );
 
   // ====================================================================

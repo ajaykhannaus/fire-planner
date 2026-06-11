@@ -23,6 +23,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      - name: Cache-bust module URLs with commit SHA
+        run: |
+          SHA=${GITHUB_SHA::8}
+          sed -i "s/?v=DEV/?v=$SHA/g" public/index.html public/js/*.js
       - name: Upload static site (public/)
         uses: actions/upload-pages-artifact@v3
         with:
